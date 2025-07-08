@@ -7,7 +7,6 @@
 - After making any changes, run `cargo fmt --all`, `cargo clippy --all-targets --all-features -- -D warnings`, and `cargo test`.
 - Fix every issue reported by these commands before committing or submitting pull requests.
 - A pull request is complete only when formatting, linting, tests, and `cargo machete` all succeed.
-- Configure the remote `origin` as `https://github.com/qqrm/rust-hh-feed`.
 - Read all Markdown (`*.md`) files from the `.docs` directory before starting work. Markdown in tests can be ignored.
 - Avoid committed dead code; remove unused functions or feature-gate them.
 
