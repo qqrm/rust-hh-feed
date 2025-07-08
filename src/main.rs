@@ -13,7 +13,12 @@ async fn main() -> anyhow::Result<()> {
     let jobs = hh_client.fetch_jobs().await?;
 
     let token = std::env::var("TELOXIDE_TOKEN").unwrap_or_default();
-    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
+    let raw_chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
+    let chat_id = if raw_chat_id.starts_with("-100") {
+        raw_chat_id
+    } else {
+        format!("-100{}", raw_chat_id)
+    };
     let bot = TelegramBot::new(token, chat_id);
 
     let message = format!("Found {} Rust jobs", jobs.len());
