@@ -24,8 +24,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    #[tokio::test]
-    async fn load_and_save_cycle() {
+    #[test]
+    fn load_and_save_cycle() {
         let path = PathBuf::from("test_posted_jobs.json");
         let mut map = PostedJobs::new();
         map.insert("1".into(), "2024-07-08".into());

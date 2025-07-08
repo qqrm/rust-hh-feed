@@ -23,7 +23,7 @@ jobs:
 
       - name: Build and run
         env:
-          TELOXIDE_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
         run: |
           cargo fmt --all
