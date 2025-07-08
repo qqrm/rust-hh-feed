@@ -17,19 +17,10 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install tools
-        run: |
-          rustup component add clippy rustfmt
-          cargo install cargo-machete
-
       - name: Build and run
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
           CARGO_TERM_PROGRESS_WHEN: never
         run: |
-          cargo fmt --all
-          cargo clippy --quiet --all-targets --all-features -- -D warnings
-          cargo machete
-          cargo test --quiet
           cargo run --release --quiet

@@ -27,7 +27,6 @@ impl TelegramBot {
             chat_id,
             client: Client::new(),
             base_url,
-
         }
     }
 

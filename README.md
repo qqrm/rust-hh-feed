@@ -43,5 +43,10 @@ cargo run --release --quiet
 
 This keeps the logs short while still printing warnings and errors.
 
+## Continuous Integration
+Pull requests trigger the `ci.yml` workflow that checks formatting,
+lint rules, `cargo machete`, and tests. Workflows `daily_post.yml` and
+`manual_post.yml` only build and run the application.
+
 ## License
 This project is licensed under the [MIT](LICENSE) license.
