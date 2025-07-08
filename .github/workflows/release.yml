@@ -13,7 +13,7 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup-rust
       - name: Cache cargo
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -25,7 +25,7 @@ jobs:
       - name: Build release
         run: cargo build --release --quiet
       - name: Upload binary
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           files: target/release/rust-hh-feed
