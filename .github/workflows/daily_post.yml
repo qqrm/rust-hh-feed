@@ -26,9 +26,10 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
+          CARGO_TERM_PROGRESS_WHEN: never
         run: |
           cargo fmt --all
-          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --quiet --all-targets --all-features -- -D warnings
           cargo machete
-          cargo test
-          cargo run --release
+          cargo test --quiet
+          cargo run --release --quiet

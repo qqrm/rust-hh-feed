@@ -31,5 +31,17 @@ The bot expects a few environment variables:
 
 Create a `.env` file using [`.env.example`](.env.example) as a template.
 
+## Quiet CI Logs
+When running CI workflows you can suppress crate download and compilation
+messages by adding `--quiet` to the Cargo commands. For example:
+
+```
+cargo clippy --quiet --all-targets --all-features -- -D warnings
+cargo test --quiet
+cargo run --release --quiet
+```
+
+This keeps the logs short while still printing warnings and errors.
+
 ## License
 This project is licensed under the [MIT](LICENSE) license.
