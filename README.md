@@ -29,6 +29,7 @@ The bot expects a few environment variables:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
+| `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 
 Create a `.env` file using [`.env.example`](.env.example) as a template.
 
