@@ -1,7 +1,8 @@
-name: Manual Post to Telegram
+name: Daily Post to Telegram
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 15 * * *'
 
 jobs:
   run-bot:
@@ -25,7 +26,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
-          MANUAL_MODE: true
         run: |
           cargo fmt --all
           cargo clippy --all-targets --all-features -- -D warnings

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::Serialize;
 
 pub struct TelegramBot {
@@ -27,16 +27,18 @@ impl TelegramBot {
             chat_id,
             client: Client::new(),
             base_url,
+
         }
     }
 
-    pub async fn send_message(&self, text: &str) -> Result<()> {
+    pub async fn send_message(&self, text: &str) -> Result<StatusCode> {
         let msg = Message {
             chat_id: &self.chat_id,
             text,
             parse_mode: "Markdown",
         };
-        self.client
+        let resp = self
+            .client
             .post(format!(
                 "{}/bot{token}/sendMessage",
                 self.base_url,
@@ -45,6 +47,6 @@ impl TelegramBot {
             .json(&msg)
             .send()
             .await?;
-        Ok(())
+        Ok(resp.status())
     }
 }
