@@ -17,11 +17,6 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Install tools
-        run: |
-          rustup component add clippy rustfmt
-          cargo install cargo-machete
-
       - name: Build and run
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

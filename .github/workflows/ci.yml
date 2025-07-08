@@ -1,10 +1,10 @@
-name: Manual Post to Telegram
+name: CI Checks
 
 on:
-  workflow_dispatch:
+  pull_request:
 
 jobs:
-  run-bot:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -16,11 +16,19 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install tools
+        run: |
+          rustup component add clippy rustfmt
+          cargo install cargo-machete
+
       - name: Build and run
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
-          MANUAL_MODE: true
           CARGO_TERM_PROGRESS_WHEN: never
         run: |
+          cargo fmt --all
+          cargo clippy --quiet --all-targets --all-features -- -D warnings
+          cargo machete
+          cargo test --quiet
           cargo run --release --quiet
