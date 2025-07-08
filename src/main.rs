@@ -24,13 +24,13 @@ async fn main() -> anyhow::Result<()> {
     let message = format!("Found {} Rust jobs", jobs.len());
     bot.send_message(&message).await?;
 
-    let mut posted = load_posted_jobs(Path::new("posted_jobs.json"))?;
+    let mut posted = load_posted_jobs(Path::new("data/posted_jobs.json"))?;
     for job in jobs {
         posted
             .entry(job.id)
             .or_insert_with(|| Utc::now().date_naive().to_string());
     }
-    save_posted_jobs(Path::new("posted_jobs.json"), &posted)?;
+    save_posted_jobs(Path::new("data/posted_jobs.json"), &posted)?;
 
     Ok(())
 }

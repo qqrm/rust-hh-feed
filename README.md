@@ -1,21 +1,21 @@
 # rust-hh-feed
 
-Проект предназначен для ежедневного поиска вакансий на HeadHunter, связанных с языком программирования Rust, и отправки их списка в Telegram-канал.
+This project collects daily job postings related to the Rust programming language from HeadHunter and posts them to a Telegram channel.
 
-## Основной функционал
+## Main Features
 
-- Запрос свежих вакансий по ключевому слову "Rust" через API hh.ru.
-- Отбор вакансий, где "Rust" встречается в названии или ключевых требованиях.
-- Публикация результатов в Telegram-канал с помощью бота.
-- Планирование запуска один раз в сутки.
+- Query the hh.ru API for fresh vacancies using the keyword "Rust".
+- Filter vacancies where "Rust" appears in the title or key requirements.
+- Publish the results to a Telegram channel via a bot.
+- Schedule the process to run once per day.
 
-## Компоненты
+## Components
 
-1. **Парсер HeadHunter** — модуль на Rust, обращающийся к API.
-2. **Сборщик и фильтр** — обрабатывает вакансии и выбирает подходящие.
-3. **Telegram-бот** — отправляет сообщения в канал.
-4. **Планировщик** — запускает процесс сбора и отправки.
+1. **HeadHunter parser** — a Rust module that queries the API.
+2. **Collector and filter** — processes vacancies and selects relevant ones.
+3. **Telegram bot** — sends messages to the channel.
+4. **Scheduler** — triggers the collection and posting.
 
-## Документация
-- [Архитектура проекта](doc.architecture/README.md)
-- [Хранение состояния публикаций](doc.architecture/TECHNICAL_DETAILS.md)
+## Documentation
+- [Project architecture](docs/README.md)
+- [Publication state storage](docs/TECHNICAL_DETAILS.md)
