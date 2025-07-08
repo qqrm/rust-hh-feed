@@ -1,6 +1,8 @@
-name: Manual Post to Telegram
+name: Post to Telegram
 
 on:
+  schedule:
+    - cron: '0 15 * * *'
   workflow_dispatch:
 
 jobs:
@@ -20,7 +22,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
-          MANUAL_MODE: true
           CARGO_TERM_PROGRESS_WHEN: never
+          MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           cargo run --release --quiet
+

@@ -1,4 +1,4 @@
-name: Cancel Jobs on Merge
+name: PR Cleanup
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ permissions:
   actions: write
 
 jobs:
-  cancel:
-    if: ${{ github.event.pull_request.merged == true }}
+  cleanup:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Cancel running workflows for PR
@@ -33,4 +33,8 @@ jobs:
                 run_id: run.id
               });
             }
+      - name: Delete branch
+        uses: peter-evans/delete-branch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 

@@ -7,19 +7,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: Install tools
-        run: |
-          rustup component add clippy rustfmt
-          cargo install cargo-machete
+      - name: Setup
+        uses: ./.github/actions/setup-rust
 
       - name: Run checks
         run: |
