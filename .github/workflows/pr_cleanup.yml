@@ -34,7 +34,7 @@ jobs:
               });
             }
       - name: Delete branch
-        uses: peter-evans/delete-branch@v2
+        uses: peter-evans/delete-branch@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
