@@ -1,3 +1,4 @@
+use chrono::{Duration, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -30,6 +31,8 @@ impl HhClient {
 
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
         let url = format!("{}/vacancies", self.base_url);
+        let to = Utc::now();
+        let from = to - Duration::hours(24);
         log::debug!("Requesting jobs from {url}");
         let resp = self
             .client
@@ -37,7 +40,10 @@ impl HhClient {
             .query(&[
                 ("text", "Rust"),
                 ("search_field", "name"),
-                ("per_page", "20"),
+                ("per_page", "100"),
+                ("order_by", "publication_time"),
+                ("date_from", &from.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                ("date_to", &to.format("%Y-%m-%dT%H:%M:%S").to_string()),
             ])
             .header(
                 "User-Agent",
