@@ -1,0 +1,34 @@
+name: Daily Post to Telegram
+
+on:
+  schedule:
+    - cron: '0 15 * * *'
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install tools
+        run: |
+          rustup component add clippy rustfmt
+          cargo install cargo-machete
+
+      - name: Build and run
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
+        run: |
+          cargo fmt --all
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo machete
+          cargo test
+          cargo run --release
