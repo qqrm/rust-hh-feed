@@ -1,6 +1,6 @@
-mod hh;
-mod state;
-mod telegram;
+use rust_hh_feed::hh;
+use rust_hh_feed::state;
+use rust_hh_feed::telegram;
 
 use chrono::Utc;
 use state::{load_posted_jobs, save_posted_jobs};

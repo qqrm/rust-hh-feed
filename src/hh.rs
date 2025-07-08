@@ -11,19 +11,28 @@ pub struct Job {
 
 pub struct HhClient {
     client: reqwest::Client,
+    base_url: String,
 }
 
 impl HhClient {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::new(),
+            base_url: "https://api.hh.ru".into(),
+        }
+    }
+
+    pub fn with_base_url(base_url: impl Into<String>) -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            base_url: base_url.into(),
         }
     }
 
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
         let resp = self
             .client
-            .get("https://api.hh.ru/vacancies")
+            .get(format!("{}/vacancies", self.base_url))
             .query(&[
                 ("text", "Rust"),
                 ("search_field", "name"),
@@ -39,5 +48,11 @@ impl HhClient {
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
         Ok(jobs)
+    }
+}
+
+impl Default for HhClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
