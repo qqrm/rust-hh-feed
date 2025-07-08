@@ -29,6 +29,7 @@ The bot expects a few environment variables:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
+| `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 
 Create a `.env` file using [`.env.example`](.env.example) as a template.
 
@@ -46,8 +47,9 @@ This keeps the logs short while still printing warnings and errors.
 
 ## Continuous Integration
 Pull requests trigger the `ci.yml` workflow that checks formatting,
-lint rules, `cargo machete`, and tests. Workflows `daily_post.yml` and
-`manual_post.yml` only build and run the application.
+lint rules, `cargo machete`, and tests. The integration run step is executed
+only when the `RUN_INTEGRATION` variable is set to `true`. Workflows
+`daily_post.yml` and `manual_post.yml` only build and run the application.
 
 ## License
 This project is licensed under the [MIT](LICENSE) license.
