@@ -50,10 +50,15 @@ cargo run --release --quiet
 This keeps the logs short while still printing warnings and errors.
 
 ## Continuous Integration
-Pull requests trigger the `ci.yml` workflow that checks formatting,
+Pull requests trigger the [`ci.yml`](.github/workflows/ci.yml) workflow that checks formatting,
 lint rules, `cargo machete`, and tests. The `post.yml` workflow
 builds and runs the application either on schedule or manually. After
 `ci.yml` succeeds, the `auto_merge.yml` workflow enables pull request auto-merge.
+
+The CI job caches Cargo dependencies and build artifacts to speed up subsequent
+runs. For each update to the `main` branch the same workflow uploads the latest
+compiled binary to the [`latest`](../../releases/latest) release. You can also
+download artifacts directly from the workflow run page.
 
 Additional workflows automate repository maintenance:
 
