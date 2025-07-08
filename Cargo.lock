@@ -983,6 +983,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "chrono",
+ "log",
  "mockito",
  "reqwest",
  "serde",
