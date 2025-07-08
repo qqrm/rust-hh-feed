@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(false);
 
     if !manual_mode {
-        save_posted_jobs(Path::new("data/posted_jobs.json"), &posted)?;
+        save_posted_jobs(Path::new(&path), &posted)?;
     } else {
         println!("Manual mode enabled - not saving state");
     }

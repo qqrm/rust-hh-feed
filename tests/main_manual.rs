@@ -4,7 +4,6 @@ use std::fs;
 use tempfile::tempdir;
 
 #[test]
-#[ignore]
 fn main_manual_mocked() {
     let _hh_mock = mock("GET", "/vacancies")
         .match_query(mockito::Matcher::Any)
@@ -14,6 +13,7 @@ fn main_manual_mocked() {
         .create();
 
     let _tg_mock = mock("POST", "/bottoken/sendMessage")
+        .expect(2)
         .with_status(200)
         .create();
 
