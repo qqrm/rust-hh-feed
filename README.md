@@ -21,12 +21,13 @@ This project collects daily job postings related to the Rust programming languag
 - [Publication state storage](docs/TECHNICAL_DETAILS.md)
 
 ## Configuration
-The bot expects two environment variables:
+The bot expects a few environment variables:
 
 | Variable | Purpose |
-|----------|---------|
+|----------|---------------------------------------------------------|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
+| `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 
 Create a `.env` file using [`.env.example`](.env.example) as a template.
 

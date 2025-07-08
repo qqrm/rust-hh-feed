@@ -8,6 +8,9 @@ use state::{load_posted_jobs, save_posted_jobs};
 use std::path::Path;
 use telegram::TelegramBot;
 
+/// Environment variable that enables manual mode.
+const MANUAL_MODE_VAR: &str = "MANUAL_MODE";
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let hh_client = hh::HhClient::new();
@@ -33,7 +36,16 @@ async fn main() -> anyhow::Result<()> {
             .entry(job.id)
             .or_insert_with(|| Utc::now().date_naive().to_string());
     }
-    save_posted_jobs(Path::new("data/posted_jobs.json"), &posted)?;
+
+    let manual_mode = std::env::var(MANUAL_MODE_VAR)
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    if !manual_mode {
+        save_posted_jobs(Path::new("data/posted_jobs.json"), &posted)?;
+    } else {
+        println!("Manual mode enabled - not saving state");
+    }
 
     Ok(())
 }
