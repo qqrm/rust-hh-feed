@@ -6,6 +6,7 @@ pub struct TelegramBot {
     token: String,
     chat_id: String,
     client: Client,
+    base_url: String,
 }
 
 #[derive(Serialize)]
@@ -17,10 +18,15 @@ struct Message<'a> {
 
 impl TelegramBot {
     pub fn new(token: String, chat_id: String) -> Self {
+        Self::with_base_url(token, chat_id, "https://api.telegram.org".into())
+    }
+
+    pub fn with_base_url(token: String, chat_id: String, base_url: String) -> Self {
         Self {
             token,
             chat_id,
             client: Client::new(),
+            base_url,
         }
     }
 
@@ -32,7 +38,8 @@ impl TelegramBot {
         };
         self.client
             .post(format!(
-                "https://api.telegram.org/bot{token}/sendMessage",
+                "{}/bot{token}/sendMessage",
+                self.base_url,
                 token = self.token
             ))
             .json(&msg)

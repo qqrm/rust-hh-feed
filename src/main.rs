@@ -10,7 +10,11 @@ use telegram::TelegramBot;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let hh_client = hh::HhClient::new();
+    let hh_client = if let Ok(url) = std::env::var("HH_BASE_URL") {
+        hh::HhClient::with_base_url(url)
+    } else {
+        hh::HhClient::new()
+    };
     let jobs = hh_client.fetch_jobs().await?;
 
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
@@ -22,18 +26,23 @@ async fn main() -> anyhow::Result<()> {
     } else {
         format!("-100{raw_chat_id}")
     };
-    let bot = TelegramBot::new(token, chat_id);
+    let bot = if let Ok(url) = std::env::var("TELEGRAM_API_BASE_URL") {
+        TelegramBot::with_base_url(token, chat_id, url)
+    } else {
+        TelegramBot::new(token, chat_id)
+    };
 
     let message = format!("Found {jobs_len} Rust jobs", jobs_len = jobs.len());
     bot.send_message(&message).await?;
 
-    let mut posted = load_posted_jobs(Path::new("data/posted_jobs.json"))?;
+    let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
+    let mut posted = load_posted_jobs(Path::new(&path))?;
     for job in jobs {
         posted
             .entry(job.id)
             .or_insert_with(|| Utc::now().date_naive().to_string());
     }
-    save_posted_jobs(Path::new("data/posted_jobs.json"), &posted)?;
+    save_posted_jobs(Path::new(&path), &posted)?;
 
     Ok(())
 }
