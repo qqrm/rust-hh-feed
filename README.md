@@ -25,9 +25,13 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 The bot expects a few environment variables:
 
 | Variable | Purpose |
-|----------|---------------------------------------------------------|
+|----------|--------------------------------------------------------------|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
+| `DEV_TELEGRAM_CHAT_ID` | ID of the development channel used in CI |
+| `HH_BASE_URL` | Override base URL for the HeadHunter API |
+| `TELEGRAM_API_BASE_URL` | Override base URL for the Telegram Bot API |
+| `POSTED_JOBS_PATH` | Path to the JSON file with already posted jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 
