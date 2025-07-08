@@ -54,5 +54,11 @@ Pull requests trigger the `ci.yml` workflow that checks formatting,
 lint rules, `cargo machete`, and tests. Workflows `daily_post.yml` and
 `manual_post.yml` only build and run the application. After `pr_checks.yml` succeeds, the `auto_merge.yml` workflow enables pull request auto-merge.
 
+Additional workflows automate repository maintenance:
+
+- `cancel_on_merge.yml` cancels running CI jobs for a pull request once it is merged.
+- `delete_branch.yml` removes the branch after a pull request is merged.
+- `manual_release.yml` allows manual execution of the bot through the GitHub UI.
+
 ## License
 This project is licensed under the [MIT](LICENSE) license.
