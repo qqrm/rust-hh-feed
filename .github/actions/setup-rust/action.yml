@@ -1,0 +1,17 @@
+name: 'Setup Rust'
+description: 'Checkout, setup Rust toolchain, and install tools'
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: Install tools
+      run: |
+        rustup component add clippy rustfmt
+        cargo install cargo-machete
+
