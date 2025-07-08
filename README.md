@@ -1,6 +1,7 @@
 # rust-hh-feed
 
 This project collects daily job postings related to the Rust programming language from HeadHunter and posts them to a Telegram channel.
+You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
 
