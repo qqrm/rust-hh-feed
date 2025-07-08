@@ -30,7 +30,7 @@ impl HhClient {
 
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
         let url = format!("{}/vacancies", self.base_url);
-        println!("Requesting jobs from {url}");
+        log::debug!("Requesting jobs from {url}");
         let resp = self
             .client
             .get(&url)
@@ -47,19 +47,19 @@ impl HhClient {
             .await?
             .json::<serde_json::Value>()
             .await?;
-        println!("Raw response: {resp}");
+        log::debug!("Raw response: {resp}");
 
         let items = resp.get("items");
         if let Some(array) = items.and_then(|v| v.as_array()) {
-            println!("Found {} items in response", array.len());
+            log::debug!("Found {} items in response", array.len());
         } else {
-            println!("No items field found in response");
+            log::debug!("No items field found in response");
         }
 
         let jobs = items
             .and_then(|v| serde_json::from_value::<Vec<Job>>(v.clone()).ok())
             .unwrap_or_default();
-        println!("Parsed {} jobs", jobs.len());
+        log::debug!("Parsed {} jobs", jobs.len());
         Ok(jobs)
     }
 }
