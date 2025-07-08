@@ -17,11 +17,11 @@ async fn main() -> anyhow::Result<()> {
     let chat_id = if raw_chat_id.starts_with("-100") {
         raw_chat_id
     } else {
-        format!("-100{}", raw_chat_id)
+        format!("-100{raw_chat_id}")
     };
     let bot = TelegramBot::new(token, chat_id);
 
-    let message = format!("Found {} Rust jobs", jobs.len());
+    let message = format!("Found {jobs_len} Rust jobs", jobs_len = jobs.len());
     bot.send_message(&message).await?;
 
     let mut posted = load_posted_jobs(Path::new("data/posted_jobs.json"))?;

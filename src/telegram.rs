@@ -32,8 +32,8 @@ impl TelegramBot {
         };
         self.client
             .post(format!(
-                "https://api.telegram.org/bot{}/sendMessage",
-                self.token
+                "https://api.telegram.org/bot{token}/sendMessage",
+                token = self.token
             ))
             .json(&msg)
             .send()
