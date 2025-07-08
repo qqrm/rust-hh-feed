@@ -2,6 +2,7 @@ use rust_hh_feed::hh;
 use rust_hh_feed::state;
 use rust_hh_feed::telegram;
 
+use anyhow::Context;
 use chrono::Utc;
 use state::{load_posted_jobs, save_posted_jobs};
 use std::path::Path;
@@ -12,8 +13,10 @@ async fn main() -> anyhow::Result<()> {
     let hh_client = hh::HhClient::new();
     let jobs = hh_client.fetch_jobs().await?;
 
-    let token = std::env::var("TELOXIDE_TOKEN").unwrap_or_default();
-    let raw_chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
+    let token = std::env::var("TELEGRAM_BOT_TOKEN")
+        .context("TELEGRAM_BOT_TOKEN environment variable not set")?;
+    let raw_chat_id = std::env::var("TELEGRAM_CHAT_ID")
+        .context("TELEGRAM_CHAT_ID environment variable not set")?;
     let chat_id = if raw_chat_id.starts_with("-100") {
         raw_chat_id
     } else {

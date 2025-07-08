@@ -19,3 +19,16 @@ This project collects daily job postings related to the Rust programming languag
 ## Documentation
 - [Project architecture](docs/README.md)
 - [Publication state storage](docs/TECHNICAL_DETAILS.md)
+
+## Configuration
+The bot expects two environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
+
+Create a `.env` file using [`.env.example`](.env.example) as a template.
+
+## License
+This project is licensed under the [MIT](LICENSE) license.
