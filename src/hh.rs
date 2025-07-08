@@ -29,23 +29,37 @@ impl HhClient {
     }
 
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
+        let url = format!("{}/vacancies", self.base_url);
+        println!("Requesting jobs from {url}");
         let resp = self
             .client
-            .get(format!("{}/vacancies", self.base_url))
+            .get(&url)
             .query(&[
                 ("text", "Rust"),
                 ("search_field", "name"),
                 ("per_page", "20"),
             ])
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)",
+            )
             .send()
             .await?
             .json::<serde_json::Value>()
             .await?;
+        println!("Raw response: {resp}");
 
-        let jobs = resp
-            .get("items")
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
+        let items = resp.get("items");
+        if let Some(array) = items.and_then(|v| v.as_array()) {
+            println!("Found {} items in response", array.len());
+        } else {
+            println!("No items field found in response");
+        }
+
+        let jobs = items
+            .and_then(|v| serde_json::from_value::<Vec<Job>>(v.clone()).ok())
             .unwrap_or_default();
+        println!("Parsed {} jobs", jobs.len());
         Ok(jobs)
     }
 }
