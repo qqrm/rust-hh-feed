@@ -13,7 +13,7 @@ fn main_manual_mocked() {
         .create();
 
     let _tg_mock = mock("POST", "/bottoken/sendMessage")
-        .expect(2)
+        .expect(1)
         .with_status(200)
         .create();
 
