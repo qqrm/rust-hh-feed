@@ -1,11 +1,10 @@
-name: Daily Post to Telegram
+name: PR Checks
 
 on:
-  schedule:
-    - cron: '0 15 * * *'
+  pull_request:
 
 jobs:
-  run-bot:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -22,10 +21,11 @@ jobs:
           rustup component add clippy rustfmt
           cargo install cargo-machete
 
-      - name: Build and run
+      - name: Run checks
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
           CARGO_TERM_PROGRESS_WHEN: never
         run: |
-          cargo run --release --quiet
+          cargo fmt --all
+          cargo clippy --quiet --all-targets --all-features -- -D warnings
+          cargo machete
+          cargo test --quiet
