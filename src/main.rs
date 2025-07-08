@@ -35,8 +35,6 @@ async fn main() -> anyhow::Result<()> {
         TelegramBot::new(token, chat_id)
     };
 
-    let message = format!("Found {jobs_len} Rust jobs", jobs_len = jobs.len());
-    bot.send_message(&message).await?;
     for job in &jobs {
         bot.send_message(&job.url).await?;
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
