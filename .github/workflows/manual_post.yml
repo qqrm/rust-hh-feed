@@ -28,8 +28,4 @@ jobs:
           MANUAL_MODE: true
           CARGO_TERM_PROGRESS_WHEN: never
         run: |
-          cargo fmt --all
-          cargo clippy --quiet --all-targets --all-features -- -D warnings
-          cargo machete
-          cargo test --quiet
           cargo run --release --quiet
