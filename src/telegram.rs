@@ -18,15 +18,16 @@ struct Message<'a> {
 
 impl TelegramBot {
     pub fn new(token: String, chat_id: String) -> Self {
-        Self::with_base_url(token, chat_id, "https://api.telegram.org")
+        Self::with_base_url(token, chat_id, "https://api.telegram.org".into())
     }
 
-    pub fn with_base_url(token: String, chat_id: String, base_url: impl Into<String>) -> Self {
+    pub fn with_base_url(token: String, chat_id: String, base_url: String) -> Self {
         Self {
             token,
             chat_id,
             client: Client::new(),
-            base_url: base_url.into(),
+            base_url,
+
         }
     }
 
