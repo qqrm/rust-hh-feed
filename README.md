@@ -35,6 +35,9 @@ The bot expects a few environment variables:
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 
+Set the `RUST_LOG` environment variable to control the logging level, for
+example `RUST_LOG=info`.
+
 Create a `.env` file using [`.env.example`](.env.example) as a template.
 
 ## Quiet CI Logs

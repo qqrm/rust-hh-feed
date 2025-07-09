@@ -13,6 +13,7 @@ const MANUAL_MODE_VAR: &str = "MANUAL_MODE";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let hh_client = if let Ok(url) = std::env::var("HH_BASE_URL") {
         hh::HhClient::with_base_url(url)
     } else {
