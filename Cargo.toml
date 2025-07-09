@@ -11,6 +11,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 log = "0.4"
+env_logger = "0.11"
 
 [dev-dependencies]
 mockito = "0.31"
