@@ -7,6 +7,7 @@ on:
 permissions:
   actions: write
   contents: write
+  pull-requests: write
 
 jobs:
   cleanup:
@@ -38,4 +39,6 @@ jobs:
         uses: peter-evans/delete-branch@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
