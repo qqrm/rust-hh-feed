@@ -12,7 +12,7 @@ This document describes the intended structure of the bot that searches for vaca
    - Uses the Bot API to send messages.
    - Stores the token and channel ID in the configuration.
 3. **Scheduler**
-   - Runs the update process once per day, typically via GitHub Actions.
+   - Runs the update process once per hour, typically via GitHub Actions.
 
 ## Data Flow
 1. The scheduler initiates the task.
