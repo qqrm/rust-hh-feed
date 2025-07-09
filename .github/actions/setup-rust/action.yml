@@ -11,6 +11,7 @@ runs:
         toolchain: stable
         override: true
     - name: Install tools
+      shell: bash
       run: |
         rustup component add clippy rustfmt
         cargo install cargo-machete
