@@ -35,6 +35,10 @@ The bot expects a few environment variables:
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 
+During continuous integration the bot posts to the development channel
+configured by `DEV_TELEGRAM_CHAT_ID`. Scheduled runs and manual releases use
+`TELEGRAM_CHAT_ID` to post to the production channel.
+
 Set the `RUST_LOG` environment variable to control the logging level, for
 example `RUST_LOG=info`.
 
