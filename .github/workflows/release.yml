@@ -29,7 +29,6 @@ jobs:
         with:
           tag_name: latest
           files: target/release/rust-hh-feed
-          allow_updates: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
