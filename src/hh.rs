@@ -1,4 +1,4 @@
-use chrono::{Duration, Utc};
+use chrono::{Duration, SecondsFormat, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -43,8 +43,11 @@ impl HhClient {
                 ("search_field", "name"),
                 ("per_page", "100"),
                 ("order_by", "publication_time"),
-                ("date_from", &from.format("%Y-%m-%dT%H:%M:%S").to_string()),
-                ("date_to", &to.format("%Y-%m-%dT%H:%M:%S").to_string()),
+                (
+                    "date_from",
+                    &from.to_rfc3339_opts(SecondsFormat::Secs, true),
+                ),
+                ("date_to", &to.to_rfc3339_opts(SecondsFormat::Secs, true)),
             ])
             .header(
                 "User-Agent",
