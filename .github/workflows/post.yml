@@ -27,12 +27,17 @@ jobs:
             target
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build and run
+      - name: Download release binary
+        run: |
+          curl -sSL -o rust-hh-feed \
+            https://github.com/${{ github.repository }}/releases/latest/download/rust-hh-feed
+          chmod +x rust-hh-feed
+
+      - name: Run
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CARGO_TERM_PROGRESS_WHEN: never
           MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
-        run: |
-          cargo run --release --quiet
+        run: ./rust-hh-feed
 
