@@ -21,6 +21,14 @@ async fn main() -> anyhow::Result<()> {
     };
     let jobs = hh_client.fetch_jobs().await?;
 
+    let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
+    let mut posted = load_posted_jobs(Path::new(&path))?;
+
+    let new_jobs: Vec<_> = jobs
+        .into_iter()
+        .filter(|job| !posted.contains_key(&job.id))
+        .collect();
+
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .context("TELEGRAM_BOT_TOKEN environment variable not set")?;
     let raw_chat_id = std::env::var("TELEGRAM_CHAT_ID")
@@ -36,16 +44,14 @@ async fn main() -> anyhow::Result<()> {
         TelegramBot::new(token, chat_id)
     };
 
-    for job in &jobs {
+    for job in &new_jobs {
         bot.send_message(&job.url).await?;
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
 
-    let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
-    let mut posted = load_posted_jobs(Path::new(&path))?;
-    for job in jobs {
+    for job in &new_jobs {
         posted
-            .entry(job.id)
+            .entry(job.id.clone())
             .or_insert_with(|| Utc::now().date_naive().to_string());
     }
 
