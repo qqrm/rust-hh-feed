@@ -41,3 +41,13 @@ jobs:
           MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
         run: ./rust-hh-feed
 
+      - name: Notify failure
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d chat_id="${CHAT_ID}" \
+            -d text="❌ Workflow '${{ github.workflow }}' failed. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
