@@ -27,6 +27,16 @@ jobs:
             target
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Download posted jobs state
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: post.yml
+          name: posted_jobs
+          path: data
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow_conclusion: success
+          if_no_artifact_found: warn
+
       - name: Download release binary
         run: |
           curl -sSL -o rust-hh-feed \
@@ -40,6 +50,12 @@ jobs:
           CARGO_TERM_PROGRESS_WHEN: never
           MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
         run: ./rust-hh-feed
+
+      - name: Upload posted jobs state
+        uses: actions/upload-artifact@v4
+        with:
+          name: posted_jobs
+          path: data/posted_jobs.json
 
       - name: Notify failure
         if: failure()
