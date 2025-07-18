@@ -71,7 +71,7 @@ download artifacts directly from the workflow run page.
 
 Additional workflows automate repository maintenance:
 
-- `pr_cleanup.yml` cancels running CI jobs and deletes the branch after a pull request is merged.
+- `pr_cleanup.yml` cancels running CI jobs and deletes the branch after a pull request is merged while skipping its own run.
 - `manual_release.yml` allows manual execution of the bot through the GitHub UI.
  
 
