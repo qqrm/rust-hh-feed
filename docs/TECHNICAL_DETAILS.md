@@ -1,6 +1,6 @@
 # Publication State Storage Architecture
 
-This document describes how the bot stores information about vacancies that have already been sent to the Telegram channel. The data is kept in the `data/posted_jobs.json` file.
+This document describes how the bot stores information about vacancies that have already been sent to the Telegram channel. The data is saved in the `posted_jobs.json` file, which is persisted between runs as a pipeline artifact rather than in the repository.
 
 ## `posted_jobs.json` Format
 
@@ -15,11 +15,12 @@ The file is a dictionary where each key is a HeadHunter vacancy ID and the value
 
 ## Typical Workflow
 
-1. On startup the bot loads `posted_jobs.json` into memory (for example, as `HashMap<String, String>`).
-2. For each vacancy found:
+1. The CI workflow downloads `posted_jobs.json` from the previous successful run and places it in the `data` directory.
+2. On startup the bot loads the file into memory (for example, as `HashMap<String, String>`).
+3. For each vacancy found:
    - if the ID already exists in the file, the vacancy is skipped;
    - otherwise the bot publishes it and adds a record to the JSON.
-3. After posting, the file is updated and committed back to the repository automatically.
+4. After posting, the file is updated and uploaded as an artifact so that the next pipeline run can download it.
 
 ## Why JSON
 
