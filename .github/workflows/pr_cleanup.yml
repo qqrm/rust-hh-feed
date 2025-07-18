@@ -19,6 +19,7 @@ jobs:
         with:
           script: |
             const branch = '${{ github.event.pull_request.head.ref }}';
+            const currentRunId = Number(process.env.GITHUB_RUN_ID);
             const runs = await github.paginate(
               github.rest.actions.listWorkflowRunsForRepo,
               {
@@ -29,6 +30,7 @@ jobs:
               }
             );
             for (const run of runs) {
+              if (run.id === currentRunId) continue;
               await github.rest.actions.cancelWorkflowRun({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
