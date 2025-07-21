@@ -13,6 +13,7 @@ This document describes the intended structure of the bot that searches for vaca
    - Stores the token and channel ID in the configuration.
 3. **Scheduler**
    - Runs the update process once per hour, typically via GitHub Actions.
+   - Removes workflow runs older than two weeks using the `cleanup-old-runs` job.
 
 ## Data Flow
 1. The scheduler initiates the task.
