@@ -76,7 +76,7 @@ jobs:
       - name: Delete old workflow runs
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
             const runs = await github.paginate(
