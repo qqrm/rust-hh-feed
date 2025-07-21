@@ -74,7 +74,8 @@ Additional workflows automate repository maintenance:
 
 - `pr_cleanup.yml` cancels running CI jobs and deletes the branch after a pull request is merged while skipping its own run.
 - `manual_release.yml` allows manual execution of the bot through the GitHub UI.
- 
+- The `cleanup-old-runs` job inside `post.yml` uses the `GH_PAT` secret to remove workflow runs older than three days. The token requires the `repo` and `actions: write` scopes.
+
 
 ## Release Binary
 A push to the `main` branch updates the `latest` release with a freshly built executable. Only one file, `rust-hh-feed`, is kept in the release. Download it with:
