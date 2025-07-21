@@ -27,6 +27,7 @@ fn main_skips_already_posted() {
         .env("TELEGRAM_API_BASE_URL", server_url())
         .env("TELEGRAM_BOT_TOKEN", "token")
         .env("TELEGRAM_CHAT_ID", "1")
+        .env("JOB_RETENTION_DAYS", "1000")
         .env("POSTED_JOBS_PATH", &state_path)
         .assert()
         .success();

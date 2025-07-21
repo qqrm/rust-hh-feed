@@ -4,12 +4,14 @@ use rust_hh_feed::telegram;
 
 use anyhow::Context;
 use chrono::Utc;
-use state::{load_posted_jobs, save_posted_jobs};
+use state::{load_posted_jobs, prune_old_jobs, save_posted_jobs};
 use std::path::Path;
 use telegram::TelegramBot;
 
 /// Environment variable that enables manual mode.
 const MANUAL_MODE_VAR: &str = "MANUAL_MODE";
+/// Environment variable that sets how many days to keep posted IDs.
+const JOB_RETENTION_VAR: &str = "JOB_RETENTION_DAYS";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -23,6 +25,11 @@ async fn main() -> anyhow::Result<()> {
 
     let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
     let mut posted = load_posted_jobs(Path::new(&path))?;
+    let retention_days = std::env::var(JOB_RETENTION_VAR)
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(30);
+    prune_old_jobs(&mut posted, retention_days);
 
     let new_jobs: Vec<_> = jobs
         .into_iter()

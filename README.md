@@ -34,6 +34,7 @@ The bot expects a few environment variables:
 | `POSTED_JOBS_PATH` | Path to the JSON file with already posted jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
+| `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous workflow run and uploaded back as an artifact after each execution.
 

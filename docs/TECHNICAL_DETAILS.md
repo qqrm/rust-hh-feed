@@ -20,7 +20,8 @@ The file is a dictionary where each key is a HeadHunter vacancy ID and the value
 3. For each vacancy found:
    - if the ID already exists in the file, the vacancy is skipped;
    - otherwise the bot publishes it and adds a record to the JSON.
-4. After posting, the file is updated and uploaded as an artifact so that the next pipeline run can download it.
+4. After posting, the bot removes entries older than `JOB_RETENTION_DAYS` (30 by default).
+5. The file is then updated and uploaded as an artifact so that the next pipeline run can download it.
 
 ## Why JSON
 

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{Duration, NaiveDate, Utc};
 use std::{collections::HashMap, fs, path::Path};
 
 pub type PostedJobs = HashMap<String, String>;
@@ -19,9 +20,20 @@ pub fn save_posted_jobs(path: &Path, map: &PostedJobs) -> Result<()> {
     Ok(())
 }
 
+/// Remove entries older than `retention_days`.
+pub fn prune_old_jobs(map: &mut PostedJobs, retention_days: i64) {
+    let cutoff = Utc::now().date_naive() - Duration::days(retention_days);
+    map.retain(|_, date| {
+        NaiveDate::parse_from_str(date, "%Y-%m-%d")
+            .map(|d| d >= cutoff)
+            .unwrap_or(false)
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -62,5 +74,24 @@ mod tests {
         let map = PostedJobs::new();
         let result = save_posted_jobs(&path, &map);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn prune_old_jobs_removes_outdated_entries() {
+        let mut map = PostedJobs::new();
+        map.insert("old".into(), "2024-01-01".into());
+        let recent = Utc::now().date_naive().to_string();
+        map.insert("recent".into(), recent.clone());
+        prune_old_jobs(&mut map, 30);
+        assert!(map.contains_key("recent"));
+        assert!(!map.contains_key("old"));
+    }
+
+    #[test]
+    fn prune_old_jobs_drops_invalid_dates() {
+        let mut map = PostedJobs::new();
+        map.insert("bad".into(), "not a date".into());
+        prune_old_jobs(&mut map, 30);
+        assert!(map.is_empty());
     }
 }
