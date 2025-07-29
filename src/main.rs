@@ -35,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
         .into_iter()
         .filter(|job| !posted.contains_key(&job.id))
         .collect();
+    log::info!("Found {} new job(s)", new_jobs.len());
 
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .context("TELEGRAM_BOT_TOKEN environment variable not set")?;
@@ -51,15 +52,19 @@ async fn main() -> anyhow::Result<()> {
         TelegramBot::new(token, chat_id)
     };
 
-    for job in &new_jobs {
-        bot.send_message(&job.url).await?;
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    }
+    if new_jobs.is_empty() {
+        log::info!("No new jobs to post");
+    } else {
+        for job in &new_jobs {
+            bot.send_message(&job.url).await?;
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
 
-    for job in &new_jobs {
-        posted
-            .entry(job.id.clone())
-            .or_insert_with(|| Utc::now().date_naive().to_string());
+        for job in &new_jobs {
+            posted
+                .entry(job.id.clone())
+                .or_insert_with(|| Utc::now().date_naive().to_string());
+        }
     }
 
     let manual_mode = std::env::var(MANUAL_MODE_VAR)
