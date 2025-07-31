@@ -4,7 +4,15 @@ on:
   pull_request:
 
 jobs:
+  verify-author:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/verify-author
+        with:
+          user: qqrm
+
   test:
+    needs: verify-author
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

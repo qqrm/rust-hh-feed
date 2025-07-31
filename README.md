@@ -64,6 +64,9 @@ Pull requests trigger the [`ci.yml`](.github/workflows/ci.yml) workflow that che
 lint rules, `cargo machete`, and tests. The `post.yml` workflow
 builds and runs the application either on schedule or manually. After
 `ci.yml` succeeds, the `auto_merge.yml` workflow merges the pull request using the `gh` CLI.
+Only pull requests opened by the `qqrm` account trigger these workflows.
+Every workflow starts with a job that verifies the author and fails if the pull
+request is not from `qqrm`.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest

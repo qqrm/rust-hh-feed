@@ -10,7 +10,16 @@ permissions:
   pull-requests: write
 
 jobs:
+  verify-author:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/verify-author
+        with:
+          user: qqrm
+
   cleanup:
+    needs: verify-author
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:

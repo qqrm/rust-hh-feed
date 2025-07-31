@@ -1,0 +1,16 @@
+name: 'Verify Pull Request Author'
+description: 'Fail if the pull request author is not the allowed user'
+inputs:
+  user:
+    description: 'Allowed GitHub user login'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Check author
+      shell: bash
+      run: |
+        if [ "${{ github.event.pull_request.user.login }}" != "${{ inputs.user }}" ]; then
+          echo "Pull requests are only accepted from '${{ inputs.user }}'."
+          exit 1
+        fi
