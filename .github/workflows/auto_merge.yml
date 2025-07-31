@@ -25,9 +25,27 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.workflow_run.pull_requests[0];
-            core.setOutput('number', pr ? pr.number : '');
+            if (pr) {
+              const { data } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+              const sameRepo =
+                data.head.repo.full_name === `${context.repo.owner}/${context.repo.repo}`;
+              core.setOutput('number', pr.number);
+              core.setOutput('author', data.user.login);
+              core.setOutput('same_repo', String(sameRepo));
+            } else {
+              core.setOutput('number', '');
+              core.setOutput('author', '');
+              core.setOutput('same_repo', 'false');
+            }
       - name: Merge primary PR
-        if: steps.pr.outputs.number
+        if: |
+          steps.pr.outputs.number &&
+          (steps.pr.outputs.author == 'codex-bot' || steps.pr.outputs.author == 'qqrm') &&
+          steps.pr.outputs.same_repo == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.pr.outputs.number }}
@@ -40,10 +58,16 @@ jobs:
         run: |
           for n in $(gh pr list --state open --json number -q '.[].number'); do
             if [ "$n" != "${{ steps.pr.outputs.number }}" ]; then
-              gh pr checkout "$n"
-              git pull --rebase origin main || continue
-              git push --force-with-lease
-              gh pr merge "$n" --rebase --delete-branch || \
-              gh pr merge "$n" --squash --delete-branch || true
+              author=$(gh pr view "$n" --json author -q '.author.login')
+              head_repo=$(gh pr view "$n" --json headRepository -q '.headRepository.nameWithOwner')
+              if [ "$author" = "codex-bot" ] || [ "$author" = "qqrm" ]; then
+                if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
+                  gh pr checkout "$n"
+                  git pull --rebase origin main || continue
+                  git push --force-with-lease
+                  gh pr merge "$n" --rebase --delete-branch || \
+                  gh pr merge "$n" --squash --delete-branch || true
+                fi
+              fi
             fi
           done
