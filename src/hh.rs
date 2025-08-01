@@ -32,8 +32,8 @@ impl HhClient {
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
         let url = format!("{}/vacancies", self.base_url);
         let to = Utc::now();
-        // Narrow the search window to a single hour because the bot runs every hour.
-        let from = to - Duration::hours(1);
+        // Search the last 90 minutes to avoid missing jobs when the pipeline is slow.
+        let from = to - Duration::minutes(90);
         log::debug!("Requesting jobs from {url}");
         let resp = self
             .client
