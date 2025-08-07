@@ -4,7 +4,7 @@ use std::fs;
 use tempfile::tempdir;
 
 #[test]
-fn main_posts_jobs_with_rust_in_description() {
+fn main_ignores_jobs_with_rust_only_in_description() {
     let hh_body = r#"{"items":[{"id":"1","name":"Backend dev","alternate_url":"http://example.com/1","snippet":{"requirement":"Proficiency in Rust"}}]}"#;
     let _hh_mock = mock("GET", "/vacancies")
         .match_query(mockito::Matcher::Any)
@@ -14,7 +14,7 @@ fn main_posts_jobs_with_rust_in_description() {
         .create();
 
     let _tg_mock = mock("POST", "/bottoken/sendMessage")
-        .expect(1)
+        .expect(0)
         .with_status(200)
         .create();
 
@@ -32,7 +32,7 @@ fn main_posts_jobs_with_rust_in_description() {
         .success();
 
     let content = fs::read_to_string(&state_path).unwrap();
-    assert!(content.contains("\"1\""));
+    assert!(!content.contains("\"1\""));
 
     _hh_mock.assert();
     _tg_mock.assert();
