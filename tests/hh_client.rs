@@ -3,7 +3,7 @@ use rust_hh_feed::hh::HhClient;
 
 #[tokio::test]
 async fn fetch_jobs_parses_mock_response() {
-    let body = r#"{"items":[{"id":"1","name":"Rust dev","alternate_url":"http://example.com/1"}]}"#;
+    let body = r#"{"items":[{"id":"1","name":"Rust dev","alternate_url":"http://example.com/1","snippet":{"requirement":"Rust experience"}}]}"#;
     let _m = mock("GET", "/vacancies")
         .match_query(Matcher::Any)
         .with_status(200)
@@ -19,4 +19,8 @@ async fn fetch_jobs_parses_mock_response() {
     assert_eq!(job.id, "1");
     assert_eq!(job.name, "Rust dev");
     assert_eq!(job.url, "http://example.com/1");
+    assert_eq!(
+        job.snippet.as_ref().and_then(|s| s.requirement.as_deref()),
+        Some("Rust experience"),
+    );
 }

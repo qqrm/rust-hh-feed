@@ -33,6 +33,18 @@ async fn main() -> anyhow::Result<()> {
 
     let new_jobs: Vec<_> = jobs
         .into_iter()
+        .filter(|job| {
+            let title_has_rust = job.name.to_lowercase().contains("rust");
+            let snippet_has_rust = job.snippet.as_ref().is_some_and(|s| {
+                s.requirement
+                    .as_deref()
+                    .is_some_and(|r| r.to_lowercase().contains("rust"))
+                    || s.responsibility
+                        .as_deref()
+                        .is_some_and(|r| r.to_lowercase().contains("rust"))
+            });
+            title_has_rust || snippet_has_rust
+        })
         .filter(|job| !posted.contains_key(&job.id))
         .collect();
     log::info!("Found {} new job(s)", new_jobs.len());

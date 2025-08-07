@@ -2,11 +2,18 @@ use chrono::{Duration, SecondsFormat, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+pub struct Snippet {
+    pub requirement: Option<String>,
+    pub responsibility: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Job {
     pub id: String,
     pub name: String,
     #[serde(rename = "alternate_url")]
     pub url: String,
+    pub snippet: Option<Snippet>,
 }
 
 pub struct HhClient {
@@ -40,7 +47,6 @@ impl HhClient {
             .get(&url)
             .query(&[
                 ("text", "Rust"),
-                ("search_field", "name"),
                 ("per_page", "100"),
                 ("order_by", "publication_time"),
                 (
