@@ -28,19 +28,16 @@ The bot expects a few environment variables:
 |----------|--------------------------------------------------------------|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
-| `DEV_TELEGRAM_CHAT_ID` | ID of the development channel used in CI |
 | `HH_BASE_URL` | Override base URL for the HeadHunter API |
 | `TELEGRAM_API_BASE_URL` | Override base URL for the Telegram Bot API |
 | `POSTED_JOBS_PATH` | Path to the JSON file with already posted jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
-| `RUN_INTEGRATION` | Set to `true` to run the bot during CI |
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous workflow run and uploaded back as an artifact after each execution.
 
-During continuous integration the bot posts to the development channel
-configured by `DEV_TELEGRAM_CHAT_ID`. Scheduled runs and manual releases use
-`TELEGRAM_CHAT_ID` to post to the production channel.
+During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
+Scheduled runs and manual releases use the production chat ID.
 
 Set the `RUST_LOG` environment variable to control the logging level, for
 example `RUST_LOG=info`.
