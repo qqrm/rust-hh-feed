@@ -5,7 +5,7 @@ This document describes the intended structure of the bot that searches for vaca
 ## Components
 
 1. **hh_feed module**
-   - Queries the hh.ru API with the search term `Rust`.
+   - Queries the hh.ru API with search terms like `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
    - Selects vacancies where "Rust" appears in the title.
    - Extracts contact details and a job link when possible.
 2. **Telegram module**

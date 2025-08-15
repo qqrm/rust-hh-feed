@@ -21,6 +21,16 @@ pub struct HhClient {
     base_url: String,
 }
 
+/// List of lower-case search terms used to query HeadHunter.
+/// Variations cover common spellings of Rust-related job titles.
+const SEARCH_TERMS: &[&str] = &[
+    "rust",
+    "rust-разработчик",
+    "rust-developer",
+    "rust-programmer",
+    "rust-программист",
+];
+
 impl HhClient {
     pub fn new() -> Self {
         Self {
@@ -42,11 +52,12 @@ impl HhClient {
         // Search the last 90 minutes to avoid missing jobs when the pipeline is slow.
         let from = to - Duration::minutes(90);
         log::debug!("Requesting jobs from {url}");
+        let search_query = SEARCH_TERMS.join(" OR ");
         let resp = self
             .client
             .get(&url)
             .query(&[
-                ("text", "Rust"),
+                ("text", search_query.as_str()),
                 ("per_page", "100"),
                 ("order_by", "publication_time"),
                 (
