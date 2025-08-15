@@ -5,7 +5,7 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
 
-- Query the hh.ru API for fresh vacancies using the keyword "Rust".
+- Query the hh.ru API for fresh vacancies using keywords such as `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
 - Filter vacancies where "Rust" appears in the title.
 - Publish the results to a Telegram channel via a bot.
 - Schedule the process to run every hour.
