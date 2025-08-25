@@ -49,8 +49,8 @@ impl HhClient {
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
         let url = format!("{}/vacancies", self.base_url);
         let to = Utc::now();
-        // Search the last 90 minutes to avoid missing jobs when the pipeline is slow.
-        let from = to - Duration::minutes(90);
+        // Search the last 45 minutes to avoid missing jobs when the pipeline is slow.
+        let from = to - Duration::minutes(45);
         log::debug!("Requesting jobs from {url}");
         let search_query = SEARCH_TERMS.join(" OR ");
         let resp = self
