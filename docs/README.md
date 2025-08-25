@@ -12,8 +12,8 @@ This document describes the intended structure of the bot that searches for vaca
    - Uses the Bot API to send messages.
    - Stores the token and channel ID in the configuration.
 3. **Scheduler**
-   - Runs the update process once per hour, typically via GitHub Actions.
-   - Requests vacancies published in the last 90 minutes to avoid gaps when the pipeline is slow.
+   - Runs the update process every 30 minutes, typically via GitHub Actions.
+   - Requests vacancies published in the last 45 minutes to avoid gaps when the pipeline is slow.
    - Removes completed workflow runs older than three days using the `cleanup-old-runs` job.
 
 ## Data Flow
