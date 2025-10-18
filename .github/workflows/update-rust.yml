@@ -1,0 +1,45 @@
+name: Update Rust toolchain
+
+on:
+  schedule:
+    - cron: '0 3 * * MON'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install latest stable Rust
+        run: |
+          rustup update stable
+
+      - name: Update rust-toolchain channel
+        id: update
+        run: |
+          set -euo pipefail
+          latest="$(rustup run stable rustc --version | awk '{print $2}')"
+          current="$(grep '^channel = ' rust-toolchain.toml | sed 's/channel = \"\(.*\)\"/\1/')"
+          echo "Current channel: ${current}"
+          echo "Latest stable: ${latest}"
+          if [ "${current}" != "${latest}" ]; then
+            sed -i "s/^channel = \".*\"/channel = \"${latest}\"/" rust-toolchain.toml
+            echo "updated=true" >>"$GITHUB_OUTPUT"
+            echo "latest=${latest}" >>"$GITHUB_OUTPUT"
+          else
+            echo "updated=false" >>"$GITHUB_OUTPUT"
+            echo "latest=${current}" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit changes
+        if: steps.update.outputs.updated == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update Rust toolchain to ${{ steps.update.outputs.latest }}"
+          file_pattern: rust-toolchain.toml
+          disable_globbing: true
