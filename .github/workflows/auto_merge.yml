@@ -10,14 +10,24 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
 jobs:
   merge:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Determine PR number
         id: pr
         uses: actions/github-script@v7
@@ -41,33 +51,51 @@ jobs:
               core.setOutput('author', '');
               core.setOutput('same_repo', 'false');
             }
+
       - name: Merge primary PR
-        if: |
+        if: >
           steps.pr.outputs.number &&
           (steps.pr.outputs.author == 'codex-bot' || steps.pr.outputs.author == 'qqrm') &&
           steps.pr.outputs.same_repo == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.pr.outputs.number }}
+        shell: bash
         run: |
-          gh pr merge "$PR" --rebase --delete-branch || \
-          gh pr merge "$PR" --squash --delete-branch
+          set -euo pipefail
+
+          if ! gh pr merge "$PR" --rebase --delete-branch; then
+            gh pr merge "$PR" --squash --delete-branch
+          fi
+
       - name: Rebase and merge remaining PRs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
+          set -euo pipefail
+
+          primary_pr="${{ steps.pr.outputs.number }}"
+          primary_pr="${primary_pr:-}"
+
           for n in $(gh pr list --state open --json number -q '.[].number'); do
-            if [ "$n" != "${{ steps.pr.outputs.number }}" ]; then
-              author=$(gh pr view "$n" --json author -q '.author.login')
-              head_repo=$(gh pr view "$n" --json headRepository -q '.headRepository.nameWithOwner')
-              if [ "$author" = "codex-bot" ] || [ "$author" = "qqrm" ]; then
-                if [ "$head_repo" = "$GITHUB_REPOSITORY" ]; then
-                  gh pr checkout "$n"
-                  git pull --rebase origin main || continue
-                  git push --force-with-lease
-                  gh pr merge "$n" --rebase --delete-branch || \
-                  gh pr merge "$n" --squash --delete-branch || true
-                fi
-              fi
+            if [ "$n" = "$primary_pr" ]; then
+              continue
+            fi
+
+            author="$(gh pr view "$n" --json author -q '.author.login')"
+            head_repo="$(gh pr view "$n" --json headRepository -q '.headRepository.nameWithOwner')"
+
+            if [ "$author" != "codex-bot" ] && [ "$author" != "qqrm" ]; then
+              continue
+            fi
+
+            if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+              continue
+            fi
+
+            gh pr checkout "$n"
+            git pull --rebase origin main || continue
+            git push --force-with-lease
+
+            if ! gh pr merge "$n" --rebase --delete-branch; then
+              gh pr merge "$n" --squash --delete-branch || true
             fi
           done
