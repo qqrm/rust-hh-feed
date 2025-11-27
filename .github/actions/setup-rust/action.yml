@@ -1,18 +1,27 @@
-name: 'Setup Rust'
-description: 'Checkout, setup Rust toolchain, and install tools'
+name: Setup Rust
+description: Checkout, setup Rust toolchain, and install tools
+
+inputs:
+  toolchain:
+    description: Rust toolchain (e.g. stable, nightly)
+    required: false
+    default: stable
+
 runs:
-  using: 'composite'
+  using: composite
   steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    - name: Setup Rust
+
+    - name: Setup Rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: ${{ inputs.toolchain }}
         override: true
-    - name: Install tools
+
+    - name: Install Rust tools
       shell: bash
       run: |
-        rustup component add clippy rustfmt
+        set -euo pipefail
+        rustup component add --toolchain "${{ inputs.toolchain }}" clippy rustfmt
         cargo install cargo-machete
-
