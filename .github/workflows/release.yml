@@ -20,6 +20,9 @@ jobs:
       CARGO_TERM_PROGRESS_WHEN: never
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
