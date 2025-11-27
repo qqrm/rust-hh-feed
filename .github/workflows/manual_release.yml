@@ -15,9 +15,6 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-
       - name: Download release binary
         shell: bash
         env:
