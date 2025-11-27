@@ -2,19 +2,27 @@ name: Release Binary
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-binary-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_PROGRESS_WHEN: never
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Setup
+      - name: Setup Rust
         uses: ./.github/actions/setup-rust
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -25,8 +33,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
       - name: Build release
-        run: cargo build --release --quiet
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --quiet
+
       - name: Upload binary
         uses: softprops/action-gh-release@v2
         with:
@@ -34,4 +47,3 @@ jobs:
           files: target/release/rust-hh-feed
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
