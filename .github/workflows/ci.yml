@@ -3,16 +3,28 @@ name: CI Checks
 on:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-checks-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_PROGRESS_WHEN: never
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Setup
+
+      - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
-      - name: Cache cargo registry
+      - name: Cache cargo registry and target
         uses: actions/cache@v4
         with:
           path: |
@@ -22,7 +34,9 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run checks
+        shell: bash
         run: |
+          set -euo pipefail
           cargo fmt --all
           cargo clippy --quiet --all-targets --all-features -- -D warnings
           cargo machete
@@ -33,5 +47,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
-          CARGO_TERM_PROGRESS_WHEN: never
-        run: cargo run --release --quiet
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run --release --quiet
