@@ -6,31 +6,35 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_PROGRESS_WHEN: never
+
+    concurrency:
+      group: manual-release-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Setup
+      - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Download release binary
+        shell: bash
+        env:
+          BINARY_NAME: rust-hh-feed
         run: |
-          curl -sSL -o rust-hh-feed \
-            https://github.com/${{ github.repository }}/releases/latest/download/rust-hh-feed
-          chmod +x rust-hh-feed
+          set -euo pipefail
+          curl -sSL -o "$BINARY_NAME" \
+            "https://github.com/${{ github.repository }}/releases/latest/download/$BINARY_NAME"
+          chmod +x "$BINARY_NAME"
 
-      - name: Run
+      - name: Run bot
+        shell: bash
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          CARGO_TERM_PROGRESS_WHEN: never
           RUST_LOG: info
-        run: ./rust-hh-feed
+          BINARY_NAME: rust-hh-feed
+        run: |
+          set -euo pipefail
+          "./$BINARY_NAME"
