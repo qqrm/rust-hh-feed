@@ -2,7 +2,8 @@ name: PR Cleanup
 
 on:
   pull_request_target:
-    types: [closed]
+    types:
+      - closed
 
 permissions:
   actions: write
@@ -13,35 +14,44 @@ jobs:
   cleanup:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
       - name: Cancel running workflows for PR
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const branch = '${{ github.event.pull_request.head.ref }}';
+            const {owner, repo} = context.repo;
+            const branch = context.payload.pull_request.head.ref;
             const currentRunId = Number(process.env.GITHUB_RUN_ID);
+
             const runs = await github.paginate(
               github.rest.actions.listWorkflowRunsForRepo,
               {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
                 branch,
-                status: 'in_progress'
+                status: 'in_progress',
               }
             );
+
             for (const run of runs) {
-              if (run.id === currentRunId) continue;
+              if (run.id === currentRunId) {
+                continue;
+              }
+
               await github.rest.actions.cancelWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id
+                owner,
+                repo,
+                run_id: run.id,
               });
             }
+
       - name: Delete branch
         uses: dawidd6/action-delete-branch@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-
