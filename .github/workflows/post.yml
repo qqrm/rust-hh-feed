@@ -5,30 +5,23 @@ on:
     - cron: '0,30 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: post-to-telegram-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_PROGRESS_WHEN: never
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        uses: ./.github/actions/setup-rust
 
       - name: Download posted jobs state
         uses: dawidd6/action-download-artifact@v2
@@ -41,19 +34,26 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Download release binary
+        shell: bash
+        env:
+          BINARY_NAME: rust-hh-feed
         run: |
-          curl -sSL -o rust-hh-feed \
-            https://github.com/${{ github.repository }}/releases/latest/download/rust-hh-feed
-          chmod +x rust-hh-feed
+          set -euo pipefail
+          curl -sSL -o "$BINARY_NAME" \
+            "https://github.com/${{ github.repository }}/releases/latest/download/$BINARY_NAME"
+          chmod +x "$BINARY_NAME"
 
-      - name: Run
+      - name: Run bot
+        shell: bash
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          CARGO_TERM_PROGRESS_WHEN: never
           MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
           RUST_LOG: info
-        run: ./rust-hh-feed
+          BINARY_NAME: rust-hh-feed
+        run: |
+          set -euo pipefail
+          "./$BINARY_NAME"
 
       - name: Upload posted jobs state
         uses: actions/upload-artifact@v4
@@ -63,10 +63,12 @@ jobs:
 
       - name: Notify failure
         if: failure()
+        shell: bash
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.DEV_TELEGRAM_CHAT_ID }}
         run: |
+          set -euo pipefail
           curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             -d chat_id="${CHAT_ID}" \
             -d text="❌ Workflow '${{ github.workflow }}' failed. See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -74,6 +76,7 @@ jobs:
   cleanup-old-runs:
     needs: run-bot
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: write
     steps:
@@ -83,31 +86,31 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+            const {owner, repo} = context.repo;
+
             const workflows = await github.paginate(
               github.rest.actions.listRepoWorkflows,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo
-              }
+              {owner, repo}
             );
+
             for (const wf of workflows) {
               const runs = await github.paginate(
                 github.rest.actions.listWorkflowRuns,
                 {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
+                  owner,
+                  repo,
                   workflow_id: wf.id,
                   status: 'completed'
                 }
               );
+
               for (const run of runs) {
                 if (Date.parse(run.updated_at) < cutoff) {
                   await github.rest.actions.deleteWorkflowRun({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
+                    owner,
+                    repo,
                     run_id: run.id
                   });
                 }
               }
             }
-
