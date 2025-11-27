@@ -23,9 +23,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-
       - name: Download posted jobs state
         uses: dawidd6/action-download-artifact@v2
         with:
