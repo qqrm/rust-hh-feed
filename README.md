@@ -61,6 +61,8 @@ Pull requests trigger the [`ci.yml`](.github/workflows/ci.yml) workflow that che
 lint rules, `cargo machete`, and tests. The `post.yml` workflow
 builds and runs the application either on schedule or manually. After
 `ci.yml` succeeds, the `auto_merge.yml` workflow merges the pull request using the `gh` CLI.
+Dependabot manages the Rust toolchain updates and the `dependabot-automerge.yml` workflow
+enables auto-merge for its pull requests after required checks pass.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest
