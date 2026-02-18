@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download posted jobs state
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v15
         with:
           workflow: post.yml
           name: posted_jobs
