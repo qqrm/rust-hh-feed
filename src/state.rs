@@ -1,21 +1,64 @@
 use anyhow::Result;
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
 pub type PostedJobs = HashMap<String, String>;
 
-pub fn load_posted_jobs(path: &Path) -> Result<PostedJobs> {
-    if path.exists() {
-        let data = fs::read_to_string(path)?;
-        let map = serde_json::from_str(&data)?;
-        Ok(map)
-    } else {
-        Ok(HashMap::new())
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostedJobsState {
+    #[serde(default = "default_state_version")]
+    pub version: u32,
+    #[serde(default)]
+    pub last_successful_run_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub jobs: PostedJobs,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum StoredPostedJobsState {
+    Legacy(PostedJobs),
+    Versioned(PostedJobsState),
+}
+
+const STATE_VERSION: u32 = 2;
+
+fn default_state_version() -> u32 {
+    STATE_VERSION
+}
+
+impl Default for PostedJobsState {
+    fn default() -> Self {
+        Self {
+            version: STATE_VERSION,
+            last_successful_run_at: None,
+            jobs: HashMap::new(),
+        }
     }
 }
 
-pub fn save_posted_jobs(path: &Path, map: &PostedJobs) -> Result<()> {
-    let data = serde_json::to_string_pretty(map)?;
+pub fn load_posted_jobs(path: &Path) -> Result<PostedJobsState> {
+    if !path.exists() {
+        return Ok(PostedJobsState::default());
+    }
+
+    let data = fs::read_to_string(path)?;
+    let state = match serde_json::from_str::<StoredPostedJobsState>(&data)? {
+        StoredPostedJobsState::Legacy(jobs) => PostedJobsState {
+            jobs,
+            ..PostedJobsState::default()
+        },
+        StoredPostedJobsState::Versioned(state) => PostedJobsState {
+            version: STATE_VERSION,
+            ..state
+        },
+    };
+    Ok(state)
+}
+
+pub fn save_posted_jobs(path: &Path, state: &PostedJobsState) -> Result<()> {
+    let data = serde_json::to_string_pretty(state)?;
     fs::write(path, data)?;
     Ok(())
 }
@@ -30,10 +73,24 @@ pub fn prune_old_jobs(map: &mut PostedJobs, retention_days: i64) {
     });
 }
 
+pub fn default_fetch_window_start(now: DateTime<Utc>) -> DateTime<Utc> {
+    now - Duration::minutes(45)
+}
+
+pub fn fetch_window_start(
+    last_successful_run_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> DateTime<Utc> {
+    let overlap = Duration::minutes(15);
+    last_successful_run_at
+        .map(|timestamp| timestamp - overlap)
+        .unwrap_or_else(|| default_fetch_window_start(now))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use chrono::TimeZone;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -41,20 +98,36 @@ mod tests {
     #[test]
     fn load_and_save_cycle() {
         let path = PathBuf::from("test_posted_jobs.json");
-        let mut map = PostedJobs::new();
-        map.insert("1".into(), "2024-07-08".into());
-        save_posted_jobs(&path, &map).unwrap();
+        let mut state = PostedJobsState::default();
+        state.jobs.insert("1".into(), "2024-07-08".into());
+        state.last_successful_run_at = Some(Utc.with_ymd_and_hms(2026, 4, 3, 1, 17, 50).unwrap());
+        save_posted_jobs(&path, &state).unwrap();
         let loaded = load_posted_jobs(&path).unwrap();
-        assert_eq!(map, loaded);
+        assert_eq!(state, loaded);
         std::fs::remove_file(&path).unwrap();
     }
 
     #[test]
-    fn load_missing_returns_empty() {
+    fn load_missing_returns_empty_state() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("missing.json");
-        let map = load_posted_jobs(&path).unwrap();
-        assert!(map.is_empty());
+        let state = load_posted_jobs(&path).unwrap();
+        assert!(state.jobs.is_empty());
+        assert!(state.last_successful_run_at.is_none());
+        assert_eq!(state.version, STATE_VERSION);
+    }
+
+    #[test]
+    fn load_legacy_state_returns_jobs_without_success_timestamp() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("legacy.json");
+        fs::write(&path, "{\"1\":\"2024-07-08\"}").unwrap();
+
+        let state = load_posted_jobs(&path).unwrap();
+
+        assert_eq!(state.jobs.get("1").map(String::as_str), Some("2024-07-08"));
+        assert!(state.last_successful_run_at.is_none());
+        assert_eq!(state.version, STATE_VERSION);
     }
 
     #[test]
@@ -71,8 +144,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("subdir");
         fs::create_dir(&path).unwrap();
-        let map = PostedJobs::new();
-        let result = save_posted_jobs(&path, &map);
+        let state = PostedJobsState::default();
+        let result = save_posted_jobs(&path, &state);
         assert!(result.is_err());
     }
 
@@ -93,5 +166,24 @@ mod tests {
         map.insert("bad".into(), "not a date".into());
         prune_old_jobs(&mut map, 30);
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn fetch_window_start_uses_last_success_with_overlap() {
+        let now = Utc.with_ymd_and_hms(2026, 4, 3, 8, 0, 0).unwrap();
+        let last_success = Utc.with_ymd_and_hms(2026, 4, 3, 7, 30, 0).unwrap();
+
+        let start = fetch_window_start(Some(last_success), now);
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 15, 0).unwrap());
+    }
+
+    #[test]
+    fn fetch_window_start_falls_back_to_default_window_without_success_timestamp() {
+        let now = Utc.with_ymd_and_hms(2026, 4, 3, 8, 0, 0).unwrap();
+
+        let start = fetch_window_start(None, now);
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 15, 0).unwrap());
     }
 }

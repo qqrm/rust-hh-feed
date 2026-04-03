@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use mockito::{mock, server_url};
+use serde_json::Value;
 use std::fs;
 use tempfile::tempdir;
 
@@ -32,8 +33,10 @@ fn main_skips_already_posted() {
         .assert()
         .success();
 
-    let content = fs::read_to_string(&state_path).unwrap();
-    assert_eq!(content, "{\n  \"1\": \"2024-07-08\"\n}");
+    let state: Value = serde_json::from_str(&fs::read_to_string(&state_path).unwrap()).unwrap();
+    assert_eq!(state["version"], 2);
+    assert_eq!(state["jobs"]["1"], "2024-07-08");
+    assert!(state["last_successful_run_at"].as_str().is_some());
 
     _hh_mock.assert();
     _tg_mock.assert();

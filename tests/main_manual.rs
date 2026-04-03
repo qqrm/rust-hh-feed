@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use mockito::{mock, server_url};
+use serde_json::Value;
 use std::fs;
 use tempfile::tempdir;
 
@@ -30,7 +31,10 @@ fn main_manual_mocked() {
         .assert()
         .success();
 
-    assert!(fs::read_to_string(&state_path).unwrap().contains("\"1\""));
+    let state: Value = serde_json::from_str(&fs::read_to_string(&state_path).unwrap()).unwrap();
+    assert_eq!(state["version"], 2);
+    assert!(state["jobs"]["1"].as_str().is_some());
+    assert!(state["last_successful_run_at"].as_str().is_some());
 
     _hh_mock.assert();
     _tg_mock.assert();

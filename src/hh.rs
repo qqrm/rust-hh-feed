@@ -1,4 +1,5 @@
-use chrono::{Duration, SecondsFormat, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
+use reqwest::Url;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -14,6 +15,13 @@ pub struct Job {
     #[serde(rename = "alternate_url")]
     pub url: String,
     pub snippet: Option<Snippet>,
+}
+
+#[derive(Debug, Deserialize)]
+struct VacanciesResponse {
+    #[serde(default)]
+    items: Vec<Job>,
+    pages: Option<u32>,
 }
 
 pub struct HhClient {
@@ -47,45 +55,67 @@ impl HhClient {
     }
 
     pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
-        let url = format!("{}/vacancies", self.base_url);
         let to = Utc::now();
-        // Search the last 45 minutes to avoid missing jobs when the pipeline is slow.
-        let from = to - Duration::minutes(45);
+        let from = to - chrono::Duration::minutes(45);
+        self.fetch_jobs_between(from, to).await
+    }
+
+    pub async fn fetch_jobs_between(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<Job>, reqwest::Error> {
+        let url = format!("{}/vacancies", self.base_url);
         log::debug!("Requesting jobs from {url}");
         let search_query = SEARCH_TERMS.join(" OR ");
-        let resp = self
-            .client
-            .get(&url)
-            .query(&[
-                ("text", search_query.as_str()),
-                ("per_page", "100"),
-                ("order_by", "publication_time"),
-                (
+        let mut page = 0;
+        let mut jobs = Vec::new();
+
+        loop {
+            let mut request_url = Url::parse(&url).expect("HH vacancies URL must be valid");
+            request_url
+                .query_pairs_mut()
+                .append_pair("text", &search_query)
+                .append_pair("per_page", "100")
+                .append_pair("page", &page.to_string())
+                .append_pair("order_by", "publication_time")
+                .append_pair(
                     "date_from",
                     &from.to_rfc3339_opts(SecondsFormat::Secs, true),
-                ),
-                ("date_to", &to.to_rfc3339_opts(SecondsFormat::Secs, true)),
-            ])
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)",
-            )
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
-        log::debug!("Raw response: {resp}");
+                )
+                .append_pair("date_to", &to.to_rfc3339_opts(SecondsFormat::Secs, true));
 
-        let items = resp.get("items");
-        if let Some(array) = items.and_then(|v| v.as_array()) {
-            log::debug!("Found {} items in response", array.len());
-        } else {
-            log::debug!("No items field found in response");
+            let response = self
+                .client
+                .get(request_url)
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)",
+                )
+                .send()
+                .await?
+                .json::<VacanciesResponse>()
+                .await?;
+
+            log::debug!(
+                "Fetched page {} with {} item(s) for range {}..{}",
+                page,
+                response.items.len(),
+                from,
+                to
+            );
+
+            let pages = response
+                .pages
+                .unwrap_or(u32::from(response.items.is_empty()));
+            jobs.extend(response.items);
+
+            page += 1;
+            if page >= pages.max(1) {
+                break;
+            }
         }
 
-        let jobs = items
-            .and_then(|v| serde_json::from_value::<Vec<Job>>(v.clone()).ok())
-            .unwrap_or_default();
         log::debug!("Parsed {} jobs", jobs.len());
         Ok(jobs)
     }

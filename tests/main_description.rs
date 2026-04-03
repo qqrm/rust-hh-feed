@@ -1,5 +1,6 @@
 use assert_cmd::Command;
 use mockito::{mock, server_url};
+use serde_json::Value;
 use std::fs;
 use tempfile::tempdir;
 
@@ -31,8 +32,12 @@ fn main_ignores_jobs_with_rust_only_in_description() {
         .assert()
         .success();
 
-    let content = fs::read_to_string(&state_path).unwrap();
-    assert!(!content.contains("\"1\""));
+    let state: Value = serde_json::from_str(&fs::read_to_string(&state_path).unwrap()).unwrap();
+    assert_eq!(state["version"], 2);
+    assert!(state["jobs"]
+        .as_object()
+        .is_some_and(|jobs| !jobs.contains_key("1")));
+    assert!(state["last_successful_run_at"].as_str().is_some());
 
     _hh_mock.assert();
     _tg_mock.assert();

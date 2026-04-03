@@ -13,12 +13,13 @@ This document describes the intended structure of the bot that searches for vaca
    - Stores the token and channel ID in the configuration.
 3. **Scheduler**
    - Runs the update process every 30 minutes, typically via GitHub Actions.
-   - Requests vacancies published in the last 45 minutes to avoid gaps when the pipeline is slow.
+   - Requests vacancies starting from the timestamp of the last successful run, with a small overlap window to avoid gaps near schedule boundaries.
    - Removes completed workflow runs older than three days using the `cleanup-old-runs` job.
 
 ## Data Flow
 1. The scheduler initiates the task.
-2. The hh_feed module requests vacancies and filters the relevant ones.
+2. The hh_feed module requests vacancies since the last committed successful run and filters the relevant ones.
 3. The Telegram module publishes a message with the list of vacancies.
+4. The publication state is committed only when the run completes successfully.
 
 All modules are implemented in Rust. The configuration is expected in a `.env` file.

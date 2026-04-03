@@ -34,7 +34,7 @@ The bot expects a few environment variables:
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
-The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous workflow run and uploaded back as an artifact after each execution.
+The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.

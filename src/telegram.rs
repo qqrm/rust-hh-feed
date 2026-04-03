@@ -46,6 +46,8 @@ impl TelegramBot {
             .json(&msg)
             .send()
             .await?;
-        Ok(resp.status())
+        let status = resp.status();
+        resp.error_for_status()?;
+        Ok(status)
     }
 }

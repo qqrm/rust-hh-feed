@@ -4,7 +4,7 @@ use rust_hh_feed::telegram;
 
 use anyhow::Context;
 use chrono::Utc;
-use state::{load_posted_jobs, prune_old_jobs, save_posted_jobs};
+use state::{fetch_window_start, load_posted_jobs, prune_old_jobs, save_posted_jobs};
 use std::path::Path;
 use telegram::TelegramBot;
 
@@ -21,20 +21,27 @@ async fn main() -> anyhow::Result<()> {
     } else {
         hh::HhClient::new()
     };
-    let jobs = hh_client.fetch_jobs().await?;
 
     let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
-    let mut posted = load_posted_jobs(Path::new(&path))?;
+    let mut state = load_posted_jobs(Path::new(&path))?;
     let retention_days = std::env::var(JOB_RETENTION_VAR)
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(30);
-    prune_old_jobs(&mut posted, retention_days);
+    prune_old_jobs(&mut state.jobs, retention_days);
+    let now = Utc::now();
+    let fetch_from = fetch_window_start(state.last_successful_run_at, now);
+    log::info!(
+        "Fetching jobs between {} and {}",
+        fetch_from.to_rfc3339(),
+        now.to_rfc3339()
+    );
+    let jobs = hh_client.fetch_jobs_between(fetch_from, now).await?;
 
     let new_jobs: Vec<_> = jobs
         .into_iter()
         .filter(|job| job.name.to_lowercase().contains("rust"))
-        .filter(|job| !posted.contains_key(&job.id))
+        .filter(|job| !state.jobs.contains_key(&job.id))
         .collect();
     log::info!("Found {} new job(s)", new_jobs.len());
 
@@ -62,7 +69,8 @@ async fn main() -> anyhow::Result<()> {
         }
 
         for job in &new_jobs {
-            posted
+            state
+                .jobs
                 .entry(job.id.clone())
                 .or_insert_with(|| Utc::now().date_naive().to_string());
         }
@@ -73,7 +81,8 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(false);
 
     if !manual_mode {
-        save_posted_jobs(Path::new(&path), &posted)?;
+        state.last_successful_run_at = Some(now);
+        save_posted_jobs(Path::new(&path), &state)?;
     } else {
         println!("Manual mode enabled - not saving state");
     }
