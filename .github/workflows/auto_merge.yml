@@ -69,6 +69,4 @@ jobs:
         run: |
           set -euo pipefail
 
-          if ! gh pr merge "$PR" --rebase --delete-branch; then
-            gh pr merge "$PR" --squash --delete-branch
-          fi
+          gh pr merge "$PR" --auto --squash --delete-branch
