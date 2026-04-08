@@ -1,19 +1,22 @@
 use assert_cmd::Command;
-use mockito::{mock, server_url};
+use mockito::Server;
 use serde_json::Value;
 use std::fs;
 use tempfile::tempdir;
 
 #[test]
 fn main_skips_already_posted() {
-    let _hh_mock = mock("GET", "/vacancies")
+    let mut server = Server::new();
+    let hh_mock = server
+        .mock("GET", "/vacancies")
         .match_query(mockito::Matcher::Any)
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body("{\"items\":[{\"id\":\"1\",\"name\":\"Rust dev\",\"alternate_url\":\"http://example.com/1\"}]}")
         .create();
 
-    let _tg_mock = mock("POST", "/bottoken/sendMessage")
+    let tg_mock = server
+        .mock("POST", "/bottoken/sendMessage")
         .expect(0)
         .with_status(200)
         .create();
@@ -24,8 +27,8 @@ fn main_skips_already_posted() {
 
     Command::cargo_bin("rust-hh-feed")
         .unwrap()
-        .env("HH_BASE_URL", server_url())
-        .env("TELEGRAM_API_BASE_URL", server_url())
+        .env("HH_BASE_URL", server.url())
+        .env("TELEGRAM_API_BASE_URL", server.url())
         .env("TELEGRAM_BOT_TOKEN", "token")
         .env("TELEGRAM_CHAT_ID", "1")
         .env("JOB_RETENTION_DAYS", "1000")
@@ -38,6 +41,6 @@ fn main_skips_already_posted() {
     assert_eq!(state["jobs"]["1"], "2024-07-08");
     assert!(state["last_successful_run_at"].as_str().is_some());
 
-    _hh_mock.assert();
-    _tg_mock.assert();
+    hh_mock.assert();
+    tg_mock.assert();
 }

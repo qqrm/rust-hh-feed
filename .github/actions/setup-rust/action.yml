@@ -10,14 +10,12 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
     - name: Setup Rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ inputs.toolchain }}
-        override: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        rustup toolchain install "${{ inputs.toolchain }}" --profile minimal --no-self-update
+        rustup default "${{ inputs.toolchain }}"
 
     - name: Install Rust tools
       shell: bash
