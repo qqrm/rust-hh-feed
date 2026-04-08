@@ -67,9 +67,11 @@ Dependabot now manages three update surfaces:
 - GitHub Actions used in `.github/workflows/`
 - Rust toolchain versions from `rust-toolchain.toml`
 
-The `dependabot-automerge.yml` workflow enables auto-merge only for Dependabot
-patch and minor updates. Merges are configured with `--auto`, so GitHub merges
-the pull request only after all required CI checks pass.
+The `dependabot-automerge.yml` workflow enables auto-merge for Dependabot
+patch and minor dependency updates plus all Dependabot updates under
+`.github/workflows/`. GitHub Actions updates are grouped into a single weekly
+pull request to reduce merge churn. Merges are configured with `--auto`, so
+GitHub merges the pull request only after all required CI checks pass.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest

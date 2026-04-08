@@ -22,6 +22,7 @@ jobs:
 
       - name: Enable auto-merge for safe updates
         if: |
+          startsWith(github.event.pull_request.head.ref, 'dependabot/github_actions/') ||
           steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
           steps.metadata.outputs.update-type == 'version-update:semver-minor'
         env:
