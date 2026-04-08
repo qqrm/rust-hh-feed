@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Determine PR number
         id: pr
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -34,6 +34,7 @@ jobs:
               core.setOutput('number', '');
               core.setOutput('author', '');
               core.setOutput('same_repo', 'false');
+              core.setOutput('head_ref', '');
               return;
             }
 
@@ -48,16 +49,14 @@ jobs:
             core.setOutput('number', pr.number);
             core.setOutput('author', data.user.login);
             core.setOutput('same_repo', String(sameRepo));
+            core.setOutput('head_ref', data.head.ref);
 
-      - name: Merge CI-green PR
+      - name: Merge CI-green Dependabot PR
         if: >
           steps.pr.outputs.number &&
-          (
-            steps.pr.outputs.author == 'codex-bot' ||
-            steps.pr.outputs.author == 'qqrm' ||
-            steps.pr.outputs.author == 'dependabot[bot]'
-          ) &&
-          steps.pr.outputs.same_repo == 'true'
+          steps.pr.outputs.author == 'dependabot[bot]' &&
+          steps.pr.outputs.same_repo == 'true' &&
+          startsWith(steps.pr.outputs.head_ref, 'dependabot/')
         env:
           PR: ${{ steps.pr.outputs.number }}
         shell: bash
