@@ -1,28 +1,32 @@
 use assert_cmd::Command;
-use mockito::{mock, server_url, Matcher};
+use mockito::{Matcher, Server};
 use std::fs;
 use tempfile::tempdir;
 
 #[test]
 fn main_does_not_commit_state_after_failed_delivery() {
+    let mut server = Server::new();
     let hh_body = r#"{
         "items": [
             {"id":"1","name":"Rust dev","alternate_url":"http://example.com/1"},
             {"id":"2","name":"Rust engineer","alternate_url":"http://example.com/2"}
         ]
     }"#;
-    let _hh_mock = mock("GET", "/vacancies")
+    let hh_mock = server
+        .mock("GET", "/vacancies")
         .match_query(Matcher::Any)
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(hh_body)
         .create();
 
-    let _tg_ok = mock("POST", "/bottoken/sendMessage")
+    let tg_ok = server
+        .mock("POST", "/bottoken/sendMessage")
         .match_body(Matcher::Regex("http://example.com/1".into()))
         .with_status(200)
         .create();
-    let _tg_fail = mock("POST", "/bottoken/sendMessage")
+    let tg_fail = server
+        .mock("POST", "/bottoken/sendMessage")
         .match_body(Matcher::Regex("http://example.com/2".into()))
         .with_status(500)
         .create();
@@ -40,8 +44,8 @@ fn main_does_not_commit_state_after_failed_delivery() {
 
     Command::cargo_bin("rust-hh-feed")
         .unwrap()
-        .env("HH_BASE_URL", server_url())
-        .env("TELEGRAM_API_BASE_URL", server_url())
+        .env("HH_BASE_URL", server.url())
+        .env("TELEGRAM_API_BASE_URL", server.url())
         .env("TELEGRAM_BOT_TOKEN", "token")
         .env("TELEGRAM_CHAT_ID", "1")
         .env("POSTED_JOBS_PATH", &state_path)
@@ -51,7 +55,7 @@ fn main_does_not_commit_state_after_failed_delivery() {
     let content = fs::read_to_string(&state_path).unwrap();
     assert_eq!(content, initial_state);
 
-    _hh_mock.assert();
-    _tg_ok.assert();
-    _tg_fail.assert();
+    hh_mock.assert();
+    tg_ok.assert();
+    tg_fail.assert();
 }

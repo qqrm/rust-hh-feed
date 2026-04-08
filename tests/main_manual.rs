@@ -1,19 +1,22 @@
 use assert_cmd::Command;
-use mockito::{mock, server_url};
+use mockito::Server;
 use serde_json::Value;
 use std::fs;
 use tempfile::tempdir;
 
 #[test]
 fn main_manual_mocked() {
-    let _hh_mock = mock("GET", "/vacancies")
+    let mut server = Server::new();
+    let hh_mock = server
+        .mock("GET", "/vacancies")
         .match_query(mockito::Matcher::Any)
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body("{\"items\":[{\"id\":\"1\",\"name\":\"Rust dev\",\"alternate_url\":\"http://example.com/1\"}]}")
         .create();
 
-    let _tg_mock = mock("POST", "/bottoken/sendMessage")
+    let tg_mock = server
+        .mock("POST", "/bottoken/sendMessage")
         .expect(1)
         .with_status(200)
         .create();
@@ -23,8 +26,8 @@ fn main_manual_mocked() {
 
     Command::cargo_bin("rust-hh-feed")
         .unwrap()
-        .env("HH_BASE_URL", server_url())
-        .env("TELEGRAM_API_BASE_URL", server_url())
+        .env("HH_BASE_URL", server.url())
+        .env("TELEGRAM_API_BASE_URL", server.url())
         .env("TELEGRAM_BOT_TOKEN", "token")
         .env("TELEGRAM_CHAT_ID", "1")
         .env("POSTED_JOBS_PATH", &state_path)
@@ -36,6 +39,6 @@ fn main_manual_mocked() {
     assert!(state["jobs"]["1"].as_str().is_some());
     assert!(state["last_successful_run_at"].as_str().is_some());
 
-    _hh_mock.assert();
-    _tg_mock.assert();
+    hh_mock.assert();
+    tg_mock.assert();
 }
