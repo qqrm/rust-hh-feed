@@ -67,14 +67,15 @@ Dependabot now manages three update surfaces:
 - GitHub Actions used in `.github/workflows/`
 - Rust toolchain versions from `rust-toolchain.toml`
 
-Dependabot pull requests are merged by `auto_merge.yml` only after their own
-`CI Checks` workflow completes successfully. No other pull request source is
-eligible for automatic merging. GitHub Actions updates are grouped into a
-single weekly pull request to reduce merge churn, and third-party actions in
-the workflows are pinned to immutable commit SHAs. A push to `main` then
-triggers `release.yml`, which rebuilds the production binary and updates the
-[`latest`](../../releases/latest) release used by the scheduled posting
-pipeline.
+Internal pull requests are merged by `auto_merge.yml` only after their own
+`CI Checks` workflow completes successfully. The allowlist is limited to
+same-repository PRs from `dependabot[bot]`, `qqrm`, and `codex-bot`, so
+external contributor branches are not auto-merged. GitHub Actions updates are
+grouped into a single weekly pull request to reduce merge churn, and
+third-party actions in the workflows are pinned to immutable commit SHAs. A
+push to `main` then triggers `release.yml`, which rebuilds the production
+binary and updates the [`latest`](../../releases/latest) release used by the
+scheduled posting pipeline.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest

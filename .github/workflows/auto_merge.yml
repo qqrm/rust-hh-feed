@@ -51,12 +51,18 @@ jobs:
             core.setOutput('same_repo', String(sameRepo));
             core.setOutput('head_ref', data.head.ref);
 
-      - name: Merge CI-green Dependabot PR
+      - name: Merge CI-green internal PR
         if: >
           steps.pr.outputs.number &&
-          steps.pr.outputs.author == 'dependabot[bot]' &&
           steps.pr.outputs.same_repo == 'true' &&
-          startsWith(steps.pr.outputs.head_ref, 'dependabot/')
+          (
+            (
+              steps.pr.outputs.author == 'dependabot[bot]' &&
+              startsWith(steps.pr.outputs.head_ref, 'dependabot/')
+            ) ||
+            steps.pr.outputs.author == 'qqrm' ||
+            steps.pr.outputs.author == 'codex-bot'
+          )
         env:
           PR: ${{ steps.pr.outputs.number }}
         shell: bash
