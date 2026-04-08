@@ -74,8 +74,8 @@ external contributor branches are not auto-merged. GitHub Actions updates are
 grouped into a single weekly pull request to reduce merge churn, and
 third-party actions in the workflows are pinned to immutable commit SHAs. A
 push to `main` then triggers `release.yml`, which rebuilds the production
-binary and updates the [`latest`](../../releases/latest) release used by the
-scheduled posting pipeline.
+binary and updates the [`latest`](../../releases/latest) release through the
+GitHub CLI used by the scheduled posting pipeline.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest
