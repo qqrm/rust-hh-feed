@@ -1,6 +1,6 @@
 # rust-hh-feed
 
-This project collects job postings related to the Rust programming language from HeadHunter every 30 minutes and posts them to a Telegram channel.
+This project collects job postings related to the Rust programming language from HeadHunter every 10 minutes and posts them to a Telegram channel.
 You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
@@ -8,7 +8,7 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 - Query the hh.ru API for fresh vacancies using keywords such as `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
 - Filter vacancies where "Rust" appears in the title.
 - Publish the results to a Telegram channel via a bot.
-- Schedule the process to run every 30 minutes.
+- Schedule the process to run every 10 minutes.
 
 ## Components
 
@@ -35,6 +35,7 @@ The bot expects a few environment variables:
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
+The bot always fetches from the last successful committed run with a small overlap window. If the state file is missing or does not contain a committed timestamp yet, it falls back to a wider bootstrap window to reduce the chance of missing vacancies during unstable scheduling.
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.
