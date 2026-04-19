@@ -7,9 +7,12 @@ use rust_hh_feed::hh::HhClient;
 async fn fetch_jobs_parses_mock_response() {
     let mut server = Server::new_async().await;
     let body = r#"{"items":[{"id":"1","name":"Rust dev","alternate_url":"http://example.com/1","snippet":{"requirement":"Rust experience"}}]}"#;
+    let expected_user_agent = "rust-hh-feed/1.0 (qqrm@users.noreply.github.com)";
     let mock = server
         .mock("GET", "/vacancies")
         .match_query(Matcher::Any)
+        .match_header("user-agent", expected_user_agent)
+        .match_header("hh-user-agent", expected_user_agent)
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(body)
