@@ -1,0 +1,48 @@
+name: HH Curl Probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Probe HeadHunter API with curl
+        shell: bash
+        env:
+          HH_USER_AGENT: ${{ vars.HH_USER_AGENT }}
+        run: |
+          set -euo pipefail
+
+          api_url='https://api.hh.ru/vacancies?text=rust&per_page=5&page=0&order_by=publication_time'
+
+          probe() {
+            local label="$1"
+            shift
+
+            echo "::group::${label}"
+            local response
+            response="$(mktemp)"
+            local code
+            code="$(
+              curl -sS -D - -o "$response" -w '%{http_code}' "$@" "$api_url"
+            )"
+            echo "HTTP status: ${code}"
+            echo "Body:"
+            cat "$response"
+            rm -f "$response"
+            echo
+            echo "::endgroup::"
+          }
+
+          probe "default curl"
+          probe "curl user agent" -H 'User-Agent: curl/8.9.1'
+          probe "configured HH user agent" -H "User-Agent: ${HH_USER_AGENT}"
+          probe \
+            "browser-like user agent" \
+            -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \
+            -H 'Accept: application/json,text/plain,*/*' \
+            -H 'Accept-Language: ru,en;q=0.9' \
+            --compressed
