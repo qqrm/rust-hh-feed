@@ -34,7 +34,8 @@ jobs:
             )"
             echo "HTTP status: ${code}"
             echo "Body:"
-            cat "$response"
+            head -c 1000 "$response"
+            echo
             rm -f "$response"
             echo
             echo "::endgroup::"
