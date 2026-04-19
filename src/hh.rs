@@ -3,6 +3,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use reqwest::header::{HeaderName, USER_AGENT};
 use reqwest::{Client, Proxy, Url};
 use serde::Deserialize;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -54,6 +55,83 @@ const PROXY_URLS_ENV_VAR: &str = "HH_PROXY_URLS";
 const PROXY_SOURCE_URLS_ENV_VAR: &str = "HH_PROXY_SOURCE_URLS";
 const PROXY_PROBE_TIMEOUT_SECS_ENV_VAR: &str = "HH_PROXY_PROBE_TIMEOUT_SECS";
 const DEFAULT_PROXY_PROBE_TIMEOUT_SECS: u64 = 5;
+const MAX_PROXY_CANDIDATES: usize = 64;
+const MAX_PROXY_CANDIDATES_PER_SOURCE: usize = 24;
+const MAX_WORKING_PROXY_ROUTES: usize = 1;
+
+#[derive(Clone, Copy)]
+enum ProxySourceFormat {
+    PlainText,
+    SpysPlainText {
+        default_scheme: &'static str,
+        country_code: &'static str,
+    },
+    OpenProxyListText {
+        default_scheme: &'static str,
+        country_code: &'static str,
+    },
+    FreeProxy24Json {
+        country_code: &'static str,
+    },
+}
+
+#[derive(Clone)]
+struct ProxySource {
+    url: Cow<'static, str>,
+    format: ProxySourceFormat,
+}
+
+const DEFAULT_PROXY_SOURCES: &[ProxySource] = &[
+    ProxySource {
+        url: Cow::Borrowed(
+            "https://freeproxy24.com/api/free-proxy-list?limit=100&page=1&country=RU&sortBy=lastChecked&sortType=desc",
+        ),
+        format: ProxySourceFormat::FreeProxy24Json { country_code: "RU" },
+    },
+    ProxySource {
+        url: Cow::Borrowed("https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS.txt"),
+        format: ProxySourceFormat::OpenProxyListText {
+            default_scheme: "http",
+            country_code: "RU",
+        },
+    },
+    ProxySource {
+        url: Cow::Borrowed("https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4.txt"),
+        format: ProxySourceFormat::OpenProxyListText {
+            default_scheme: "socks4",
+            country_code: "RU",
+        },
+    },
+    ProxySource {
+        url: Cow::Borrowed("https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5.txt"),
+        format: ProxySourceFormat::OpenProxyListText {
+            default_scheme: "socks5",
+            country_code: "RU",
+        },
+    },
+    ProxySource {
+        url: Cow::Borrowed("https://spys.me/proxy.txt"),
+        format: ProxySourceFormat::SpysPlainText {
+            default_scheme: "http",
+            country_code: "RU",
+        },
+    },
+    ProxySource {
+        url: Cow::Borrowed("https://spys.me/socks.txt"),
+        format: ProxySourceFormat::SpysPlainText {
+            default_scheme: "socks5",
+            country_code: "RU",
+        },
+    },
+];
+
+#[derive(Debug, Deserialize)]
+struct FreeProxy24Entry {
+    ip: String,
+    port: String,
+    country: String,
+    protocols: Vec<String>,
+}
 
 fn configured_user_agent() -> String {
     std::env::var(USER_AGENT_ENV_VAR)
@@ -120,6 +198,35 @@ fn normalize_proxy_candidate(raw: &str) -> Option<String> {
     }
 }
 
+fn normalize_proxy_candidate_with_scheme(raw: &str, default_scheme: &str) -> Option<String> {
+    let candidate = raw.trim();
+    if candidate.is_empty() || candidate.starts_with('#') {
+        return None;
+    }
+
+    if candidate.contains("://") {
+        return normalize_proxy_candidate(candidate);
+    }
+
+    let parts: Vec<_> = candidate.split(':').collect();
+    match parts.as_slice() {
+        [host, port] if !host.is_empty() && !port.is_empty() => {
+            Some(format!("{default_scheme}://{host}:{port}"))
+        }
+        [host, port, username, password]
+            if !host.is_empty()
+                && !port.is_empty()
+                && !username.is_empty()
+                && !password.is_empty() =>
+        {
+            Some(format!(
+                "{default_scheme}://{username}:{password}@{host}:{port}"
+            ))
+        }
+        _ => None,
+    }
+}
+
 fn redact_proxy_url(proxy_url: &str) -> String {
     match Url::parse(proxy_url) {
         Ok(url) => {
@@ -135,26 +242,149 @@ fn redact_proxy_url(proxy_url: &str) -> String {
     }
 }
 
+fn parse_spys_proxy_candidates(
+    body: &str,
+    default_scheme: &str,
+    country_code: &str,
+) -> Vec<String> {
+    body.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || !trimmed
+                    .chars()
+                    .next()
+                    .is_some_and(|value| value.is_ascii_digit())
+            {
+                return None;
+            }
+
+            let mut tokens = trimmed.split_whitespace();
+            let endpoint = tokens.next()?;
+            let location = tokens.next()?;
+            if !location.starts_with(&format!("{country_code}-")) {
+                return None;
+            }
+
+            normalize_proxy_candidate_with_scheme(endpoint, default_scheme)
+        })
+        .take(MAX_PROXY_CANDIDATES_PER_SOURCE)
+        .collect()
+}
+
+fn parse_openproxylist_candidates(
+    body: &str,
+    default_scheme: &str,
+    country_code: &str,
+) -> Vec<String> {
+    body.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty()
+                || trimmed.starts_with("Fromat:")
+                || trimmed.starts_with("Website=")
+            {
+                return None;
+            }
+
+            let mut tokens = trimmed.split_whitespace();
+            let _flag = tokens.next()?;
+            let endpoint = tokens.next()?;
+            if !tokens.any(|token| token == country_code) {
+                return None;
+            }
+
+            normalize_proxy_candidate_with_scheme(endpoint, default_scheme)
+        })
+        .take(MAX_PROXY_CANDIDATES_PER_SOURCE)
+        .collect()
+}
+
+fn proxy_scheme_for_protocol(protocol: &str) -> Option<&'static str> {
+    match protocol.trim().to_ascii_lowercase().as_str() {
+        "http" | "https" => Some("http"),
+        "socks4" => Some("socks4"),
+        "socks5" => Some("socks5"),
+        _ => None,
+    }
+}
+
+fn parse_freeproxy24_candidates(body: &str, country_code: &str) -> Result<Vec<String>> {
+    let entries: Vec<FreeProxy24Entry> =
+        serde_json::from_str(body).context("failed to parse FreeProxy24 proxy list JSON")?;
+
+    Ok(entries
+        .into_iter()
+        .filter(|entry| entry.country.eq_ignore_ascii_case(country_code))
+        .filter_map(|entry| {
+            let scheme = entry
+                .protocols
+                .iter()
+                .find_map(|protocol| proxy_scheme_for_protocol(protocol))?;
+            normalize_proxy_candidate_with_scheme(
+                &format!("{}:{}", entry.ip.trim(), entry.port.trim()),
+                scheme,
+            )
+        })
+        .take(MAX_PROXY_CANDIDATES_PER_SOURCE)
+        .collect())
+}
+
+fn parse_proxy_source_candidates(body: &str, format: ProxySourceFormat) -> Result<Vec<String>> {
+    match format {
+        ProxySourceFormat::PlainText => Ok(split_configured_values(body)
+            .filter_map(normalize_proxy_candidate)
+            .take(MAX_PROXY_CANDIDATES_PER_SOURCE)
+            .collect()),
+        ProxySourceFormat::SpysPlainText {
+            default_scheme,
+            country_code,
+        } => Ok(parse_spys_proxy_candidates(
+            body,
+            default_scheme,
+            country_code,
+        )),
+        ProxySourceFormat::OpenProxyListText {
+            default_scheme,
+            country_code,
+        } => Ok(parse_openproxylist_candidates(
+            body,
+            default_scheme,
+            country_code,
+        )),
+        ProxySourceFormat::FreeProxy24Json { country_code } => {
+            parse_freeproxy24_candidates(body, country_code)
+        }
+    }
+}
+
 async fn fetch_proxy_source_candidates(
     source_client: &Client,
-    source_url: &str,
+    source: &ProxySource,
 ) -> Result<Vec<String>> {
     let response = source_client
-        .get(source_url)
+        .get(source.url.as_ref())
         .send()
         .await
-        .with_context(|| format!("failed to fetch proxy source {source_url}"))?
+        .with_context(|| format!("failed to fetch proxy source {}", source.url))?
         .error_for_status()
-        .with_context(|| format!("proxy source returned an unsuccessful status: {source_url}"))?;
+        .with_context(|| {
+            format!(
+                "proxy source returned an unsuccessful status: {}",
+                source.url
+            )
+        })?;
 
-    let body = response
-        .text()
-        .await
-        .with_context(|| format!("failed to read proxy source response body from {source_url}"))?;
+    let body = response.text().await.with_context(|| {
+        format!(
+            "failed to read proxy source response body from {}",
+            source.url
+        )
+    })?;
 
-    Ok(split_configured_values(&body)
-        .filter_map(normalize_proxy_candidate)
-        .collect())
+    parse_proxy_source_candidates(&body, source.format)
+        .with_context(|| format!("failed to parse proxy candidates from {}", source.url))
 }
 
 fn build_client_with_timeout(timeout: Duration) -> Result<Client> {
@@ -221,15 +451,50 @@ async fn configured_proxy_candidates(timeout: Duration) -> Result<Vec<String>> {
         }
     }
 
-    if let Ok(raw_sources) = std::env::var(PROXY_SOURCE_URLS_ENV_VAR) {
-        let source_client = build_client_with_timeout(timeout)?;
-        for source_url in split_configured_values(&raw_sources) {
-            let source_candidates =
-                fetch_proxy_source_candidates(&source_client, source_url).await?;
-            for candidate in source_candidates {
-                if seen.insert(candidate.clone()) {
-                    candidates.push(candidate);
+    let source_client = build_client_with_timeout(timeout)?;
+    let configured_sources = std::env::var(PROXY_SOURCE_URLS_ENV_VAR)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(|raw_sources| {
+            split_configured_values(&raw_sources)
+                .map(|source_url| ProxySource {
+                    url: Cow::Owned(source_url.to_owned()),
+                    format: ProxySourceFormat::PlainText,
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| DEFAULT_PROXY_SOURCES.to_vec());
+
+    for source in configured_sources {
+        match fetch_proxy_source_candidates(&source_client, &source).await {
+            Ok(source_candidates) => {
+                if source_candidates.is_empty() {
+                    log::warn!("Proxy source {} produced no usable candidates", source.url);
+                    continue;
                 }
+
+                log::info!(
+                    "Loaded {} proxy candidate(s) from {}",
+                    source_candidates.len(),
+                    source.url
+                );
+
+                for candidate in source_candidates {
+                    if seen.insert(candidate.clone()) {
+                        candidates.push(candidate);
+                    }
+
+                    if candidates.len() >= MAX_PROXY_CANDIDATES {
+                        log::info!(
+                            "Reached proxy candidate cap of {} entries",
+                            MAX_PROXY_CANDIDATES
+                        );
+                        return Ok(candidates);
+                    }
+                }
+            }
+            Err(error) => {
+                log::warn!("Skipping proxy source {}: {error:#}", source.url);
             }
         }
     }
@@ -304,6 +569,13 @@ impl HhClient {
                     client,
                     label: redacted,
                 });
+                if routes.len() >= MAX_WORKING_PROXY_ROUTES {
+                    log::info!(
+                        "Collected {} working HeadHunter proxy routes, stopping further probes",
+                        MAX_WORKING_PROXY_ROUTES
+                    );
+                    break;
+                }
                 continue;
             }
 
@@ -429,7 +701,10 @@ impl Default for HhClient {
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_proxy_candidate, redact_proxy_url, split_configured_values};
+    use super::{
+        normalize_proxy_candidate, parse_freeproxy24_candidates, parse_openproxylist_candidates,
+        parse_spys_proxy_candidates, redact_proxy_url, split_configured_values,
+    };
 
     #[test]
     fn split_configured_values_supports_lines_and_commas() {
@@ -462,6 +737,56 @@ mod tests {
         assert_eq!(
             redact_proxy_url("http://user:pass@10.0.0.1:8080"),
             "http://10.0.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn parse_spys_proxy_candidates_filters_russian_rows() {
+        let body = "\
+109.168.173.173:1080 RU-H -\n\
+151.243.109.249:1082 NL-H! -\n\
+31.29.180.13:1080 RU-H -\n";
+
+        let parsed = parse_spys_proxy_candidates(body, "socks5", "RU");
+
+        assert_eq!(
+            parsed,
+            vec![
+                "socks5://109.168.173.173:1080",
+                "socks5://31.29.180.13:1080"
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_openproxylist_candidates_filters_russian_rows() {
+        let body = "\
+Fromat: CountryFlag IP:PORT ResponseTime CountryCode [ISP]\n\
+🇷🇺 87.117.11.57:1080 240ms RU [Macroregional South]\n\
+🇧🇷 187.63.9.62:63253 468ms BR [Provider]\n\
+🇷🇺 94.198.55.86:2906 250ms RU [Provider]\n";
+
+        let parsed = parse_openproxylist_candidates(body, "socks5", "RU");
+
+        assert_eq!(
+            parsed,
+            vec!["socks5://87.117.11.57:1080", "socks5://94.198.55.86:2906"]
+        );
+    }
+
+    #[test]
+    fn parse_freeproxy24_candidates_uses_protocol_scheme() {
+        let body = r#"[
+            {"ip":"85.143.173.198","port":"8444","country":"RU","protocols":["socks5"]},
+            {"ip":"31.135.91.9","port":"4145","country":"RU","protocols":["socks4"]},
+            {"ip":"8.8.8.8","port":"8080","country":"US","protocols":["http"]}
+        ]"#;
+
+        let parsed = parse_freeproxy24_candidates(body, "RU").unwrap();
+
+        assert_eq!(
+            parsed,
+            vec!["socks5://85.143.173.198:8444", "socks4://31.135.91.9:4145"]
         );
     }
 }
