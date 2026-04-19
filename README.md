@@ -1,6 +1,6 @@
 # rust-hh-feed
 
-This project collects job postings related to the Rust programming language from HeadHunter every 10 minutes and posts them to a Telegram channel.
+This project collects job postings related to the Rust programming language from HeadHunter every 20 minutes and posts them to a Telegram channel.
 You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
@@ -8,7 +8,7 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 - Query the hh.ru API for fresh vacancies using keywords such as `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
 - Filter vacancies where "Rust" appears in the title.
 - Publish the results to a Telegram channel via a bot.
-- Schedule the process to run every 10 minutes.
+- Schedule the process to run every 20 minutes.
 
 ## Components
 
