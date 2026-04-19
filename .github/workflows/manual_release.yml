@@ -43,6 +43,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           BACKFILL_HOURS: ${{ inputs.backfill_hours }}
           HH_USER_AGENT: ${{ vars.HH_USER_AGENT }}
+          HH_PROXY_URLS: ${{ vars.HH_PROXY_URLS }}
+          HH_PROXY_SOURCE_URLS: ${{ vars.HH_PROXY_SOURCE_URLS }}
+          HH_PROXY_PROBE_TIMEOUT_SECS: ${{ vars.HH_PROXY_PROBE_TIMEOUT_SECS }}
           RUST_LOG: info
           BINARY_NAME: rust-hh-feed
         run: |
