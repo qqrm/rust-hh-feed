@@ -112,3 +112,23 @@ async fn fetch_jobs_fails_on_unsuccessful_status() {
 
     mock.assert_async().await;
 }
+
+#[tokio::test]
+async fn fetch_jobs_fails_on_invalid_success_payload() {
+    let mut server = Server::new_async().await;
+    let mock = server
+        .mock("GET", "/vacancies")
+        .match_query(Matcher::Any)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"description":"unexpected payload"}"#)
+        .create_async()
+        .await;
+
+    let client = HhClient::with_base_url(server.url());
+    let error = client.fetch_jobs().await.unwrap_err();
+
+    assert!(error.is_decode());
+
+    mock.assert_async().await;
+}

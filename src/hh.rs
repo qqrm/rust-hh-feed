@@ -19,7 +19,6 @@ pub struct Job {
 
 #[derive(Debug, Deserialize)]
 struct VacanciesResponse {
-    #[serde(default)]
     items: Vec<Job>,
     pages: Option<u32>,
 }
