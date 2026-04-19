@@ -41,7 +41,7 @@ The bot expects a few environment variables:
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
 HeadHunter documents `User-Agent` and `HH-User-Agent` as interchangeable request headers, so the bot now sends both with the same value. Production runs should define `HH_USER_AGENT` in GitHub Actions variables using the documented application/contact format, for example `MyApp/1.0 (my-app-feedback@example.com)`.
-If `HH_PROXY_URLS` or `HH_PROXY_SOURCE_URLS` is configured, the bot probes candidates against the HeadHunter vacancies endpoint, selects the first proxy that actually works for vacancy search, and keeps Telegram traffic on the direct network path.
+If `HH_PROXY_URLS` or `HH_PROXY_SOURCE_URLS` is configured, the bot probes candidates against the HeadHunter vacancies endpoint, keeps the working proxies in order, and retries the real vacancies request through them until one succeeds before falling back to direct access. Telegram traffic always stays on the direct network path.
 For one-off recovery runs you can set `BACKFILL_HOURS`, typically `72`, to fetch missed vacancies from the last three days plus the normal overlap in addition to the state-based window.
 The bot always fetches from the last successful committed run with a small overlap window. If the state file is missing or does not contain a committed timestamp yet, it falls back to a wider bootstrap window to reduce the chance of missing vacancies during unstable scheduling.
 

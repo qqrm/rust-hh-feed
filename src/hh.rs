@@ -28,9 +28,14 @@ struct VacanciesResponse {
 }
 
 pub struct HhClient {
-    client: Client,
+    routes: Vec<HhRoute>,
     base_url: String,
     user_agent: String,
+}
+
+struct HhRoute {
+    client: Client,
+    label: String,
 }
 
 /// List of lower-case search terms used to query HeadHunter.
@@ -235,7 +240,10 @@ async fn configured_proxy_candidates(timeout: Duration) -> Result<Vec<String>> {
 impl HhClient {
     pub fn new() -> Self {
         Self {
-            client: Client::new(),
+            routes: vec![HhRoute {
+                client: Client::new(),
+                label: "direct".to_owned(),
+            }],
             base_url: "https://api.hh.ru".into(),
             user_agent: configured_user_agent(),
         }
@@ -243,7 +251,10 @@ impl HhClient {
 
     pub fn with_base_url(base_url: impl Into<String>) -> Self {
         Self {
-            client: Client::new(),
+            routes: vec![HhRoute {
+                client: Client::new(),
+                label: "direct".to_owned(),
+            }],
             base_url: base_url.into(),
             user_agent: configured_user_agent(),
         }
@@ -258,10 +269,14 @@ impl HhClient {
         let user_agent = configured_user_agent();
         let timeout = configured_proxy_probe_timeout()?;
         let proxy_candidates = configured_proxy_candidates(timeout).await?;
+        let direct_client = build_client_with_timeout(timeout)?;
 
         if proxy_candidates.is_empty() {
             return Ok(Self {
-                client: build_client_with_timeout(timeout)?,
+                routes: vec![HhRoute {
+                    client: direct_client,
+                    label: "direct".to_owned(),
+                }],
                 base_url,
                 user_agent,
             });
@@ -272,6 +287,7 @@ impl HhClient {
             proxy_candidates.len()
         );
 
+        let mut routes = Vec::new();
         for candidate in proxy_candidates {
             let redacted = redact_proxy_url(&candidate);
             let client = match build_proxy_client(&candidate, timeout) {
@@ -283,23 +299,30 @@ impl HhClient {
             };
 
             if probe_vacancies_access(&client, &base_url, &user_agent).await {
-                log::info!("Using HeadHunter proxy {redacted}");
-                return Ok(Self {
+                log::info!("Accepted HeadHunter proxy candidate {redacted}");
+                routes.push(HhRoute {
                     client,
-                    base_url,
-                    user_agent,
+                    label: redacted,
                 });
+                continue;
             }
 
             log::warn!("Proxy {redacted} did not pass the HeadHunter vacancies probe");
         }
 
-        log::warn!(
-            "No configured proxy passed the HeadHunter vacancies probe, falling back to direct access"
-        );
+        if routes.is_empty() {
+            log::warn!(
+                "No configured proxy passed the HeadHunter vacancies probe, falling back to direct access"
+            );
+        }
+
+        routes.push(HhRoute {
+            client: direct_client,
+            label: "direct".to_owned(),
+        });
 
         Ok(Self {
-            client: build_client_with_timeout(timeout)?,
+            routes,
             base_url,
             user_agent,
         })
@@ -313,6 +336,33 @@ impl HhClient {
 
     pub async fn fetch_jobs_between(
         &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<Job>, reqwest::Error> {
+        let mut last_error = None;
+
+        for route in &self.routes {
+            log::info!("Attempting HeadHunter fetch via {}", route.label);
+            match self.fetch_jobs_between_via(&route.client, from, to).await {
+                Ok(jobs) => {
+                    if route.label != "direct" {
+                        log::info!("HeadHunter fetch succeeded via {}", route.label);
+                    }
+                    return Ok(jobs);
+                }
+                Err(error) => {
+                    log::warn!("HeadHunter fetch failed via {}: {}", route.label, error);
+                    last_error = Some(error);
+                }
+            }
+        }
+
+        Err(last_error.expect("HH client must have at least one route"))
+    }
+
+    async fn fetch_jobs_between_via(
+        &self,
+        client: &Client,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Result<Vec<Job>, reqwest::Error> {
@@ -337,8 +387,7 @@ impl HhClient {
                 )
                 .append_pair("date_to", &to.to_rfc3339_opts(SecondsFormat::Secs, true));
 
-            let response = self
-                .client
+            let response = client
                 .get(request_url)
                 .header(USER_AGENT, &self.user_agent)
                 .header(HH_USER_AGENT_HEADER.clone(), &self.user_agent)
