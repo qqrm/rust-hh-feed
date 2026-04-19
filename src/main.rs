@@ -4,7 +4,7 @@ use rust_hh_feed::telegram;
 
 use anyhow::Context;
 use chrono::Utc;
-use state::{fetch_window_start, load_posted_jobs, prune_old_jobs, save_posted_jobs};
+use state::{load_posted_jobs, prune_old_jobs, resolve_fetch_window_start, save_posted_jobs};
 use std::path::Path;
 use telegram::TelegramBot;
 
@@ -12,6 +12,8 @@ use telegram::TelegramBot;
 const MANUAL_MODE_VAR: &str = "MANUAL_MODE";
 /// Environment variable that sets how many days to keep posted IDs.
 const JOB_RETENTION_VAR: &str = "JOB_RETENTION_DAYS";
+/// Environment variable that widens the fetch window for one-off backfills.
+const BACKFILL_HOURS_VAR: &str = "BACKFILL_HOURS";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,7 +32,30 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(30);
     prune_old_jobs(&mut state.jobs, retention_days);
     let now = Utc::now();
-    let fetch_from = fetch_window_start(state.last_successful_run_at, now);
+    let backfill_hours = std::env::var(BACKFILL_HOURS_VAR)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| {
+            value.parse::<i64>().with_context(|| {
+                format!("{BACKFILL_HOURS_VAR} must be a positive integer number of hours")
+            })
+        })
+        .transpose()?
+        .map(|hours| {
+            anyhow::ensure!(
+                hours > 0,
+                "{BACKFILL_HOURS_VAR} must be a positive integer number of hours"
+            );
+            Ok(hours)
+        })
+        .transpose()?;
+    let fetch_from = resolve_fetch_window_start(state.last_successful_run_at, now, backfill_hours);
+    if let Some(hours) = backfill_hours {
+        log::warn!(
+            "Backfill mode enabled, widening fetch window to the last {} hour(s)",
+            hours
+        );
+    }
     log::info!(
         "Fetching jobs between {} and {}",
         fetch_from.to_rfc3339(),

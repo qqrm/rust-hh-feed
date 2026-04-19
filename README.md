@@ -29,12 +29,16 @@ The bot expects a few environment variables:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
 | `HH_BASE_URL` | Override base URL for the HeadHunter API |
+| `HH_USER_AGENT` | Override the `User-Agent` header sent to the HeadHunter API |
+| `BACKFILL_HOURS` | Optional one-off override that widens the fetch window for backfills |
 | `TELEGRAM_API_BASE_URL` | Override base URL for the Telegram Bot API |
 | `POSTED_JOBS_PATH` | Path to the JSON file with already posted jobs |
 | `MANUAL_MODE` | Set to `true` to skip saving posted jobs |
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
+HeadHunter may reject requests with a blacklisted or invalid `User-Agent`, so production runs should define `HH_USER_AGENT` in GitHub Actions variables with a stable application identifier and contact.
+For one-off recovery runs you can set `BACKFILL_HOURS`, for example `120`, to fetch missed vacancies from the last five days in addition to the normal state-based window.
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.
@@ -75,7 +79,9 @@ grouped into a single weekly pull request to reduce merge churn, and
 third-party actions in the workflows are pinned to immutable commit SHAs. A
 push to `main` then triggers `release.yml`, which rebuilds the production
 binary and updates the [`latest`](../../releases/latest) release through the
-GitHub CLI used by the scheduled posting pipeline.
+GitHub CLI when the bot sources or build inputs change on `main`. The scheduled
+posting pipeline downloads that release asset instead of rebuilding the bot on
+every run.
 
 The CI job caches Cargo dependencies and build artifacts to speed up subsequent
 runs. For each update to the `main` branch the same workflow uploads the latest
@@ -85,8 +91,8 @@ download artifacts directly from the workflow run page.
 Additional workflows automate repository maintenance:
 
 - `pr_cleanup.yml` cancels running CI jobs and deletes the branch after a pull request is merged while skipping its own run.
-- `manual_release.yml` allows manual execution of the bot through the GitHub UI.
- - The `cleanup-old-runs` job inside `post.yml` deletes completed runs of all workflows after three days using `GITHUB_TOKEN` with the `actions: write` permission.
+- `manual_release.yml` allows manual execution of the bot through the GitHub UI using the current `latest` release asset.
+- The `cleanup-old-runs` job inside `post.yml` deletes completed runs of all workflows after three days using `GITHUB_TOKEN` with the `actions: write` permission.
 
 
 ## Release Binary

@@ -2,6 +2,11 @@ name: Manual Release
 
 on:
   workflow_dispatch:
+    inputs:
+      backfill_hours:
+        description: 'Optional: widen the fetch window for one-off backfills'
+        required: false
+        type: string
 
 jobs:
   run-bot:
@@ -36,6 +41,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BACKFILL_HOURS: ${{ inputs.backfill_hours }}
+          HH_USER_AGENT: ${{ vars.HH_USER_AGENT }}
           RUST_LOG: info
           BINARY_NAME: rust-hh-feed
         run: |

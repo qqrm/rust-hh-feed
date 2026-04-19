@@ -87,6 +87,19 @@ pub fn fetch_window_start(
         .unwrap_or_else(|| default_fetch_window_start(now))
 }
 
+pub fn resolve_fetch_window_start(
+    last_successful_run_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    backfill_hours: Option<i64>,
+) -> DateTime<Utc> {
+    let state_start = fetch_window_start(last_successful_run_at, now);
+
+    match backfill_hours {
+        Some(hours) if hours > 0 => state_start.min(now - Duration::hours(hours)),
+        _ => state_start,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +198,25 @@ mod tests {
         let start = fetch_window_start(None, now);
 
         assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 15, 0).unwrap());
+    }
+
+    #[test]
+    fn resolve_fetch_window_start_uses_earlier_backfill_window() {
+        let now = Utc.with_ymd_and_hms(2026, 4, 3, 8, 0, 0).unwrap();
+        let last_success = Utc.with_ymd_and_hms(2026, 4, 3, 7, 30, 0).unwrap();
+
+        let start = resolve_fetch_window_start(Some(last_success), now, Some(48));
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 1, 8, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn resolve_fetch_window_start_uses_backfill_window_even_when_it_only_expands_slightly() {
+        let now = Utc.with_ymd_and_hms(2026, 4, 3, 8, 0, 0).unwrap();
+        let last_success = Utc.with_ymd_and_hms(2026, 4, 3, 7, 30, 0).unwrap();
+
+        let start = resolve_fetch_window_start(Some(last_success), now, Some(1));
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 0, 0).unwrap());
     }
 }
