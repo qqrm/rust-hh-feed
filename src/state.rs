@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
 pub type PostedJobs = HashMap<String, String>;
+const FETCH_OVERLAP_MINUTES: i64 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PostedJobsState {
@@ -81,7 +82,7 @@ pub fn fetch_window_start(
     last_successful_run_at: Option<DateTime<Utc>>,
     now: DateTime<Utc>,
 ) -> DateTime<Utc> {
-    let overlap = Duration::minutes(15);
+    let overlap = Duration::minutes(FETCH_OVERLAP_MINUTES);
     last_successful_run_at
         .map(|timestamp| timestamp - overlap)
         .unwrap_or_else(|| default_fetch_window_start(now))
@@ -95,7 +96,9 @@ pub fn resolve_fetch_window_start(
     let state_start = fetch_window_start(last_successful_run_at, now);
 
     match backfill_hours {
-        Some(hours) if hours > 0 => state_start.min(now - Duration::hours(hours)),
+        Some(hours) if hours > 0 => {
+            state_start.min(now - Duration::hours(hours) - Duration::minutes(FETCH_OVERLAP_MINUTES))
+        }
         _ => state_start,
     }
 }
@@ -207,7 +210,7 @@ mod tests {
 
         let start = resolve_fetch_window_start(Some(last_success), now, Some(48));
 
-        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 1, 8, 0, 0).unwrap());
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 1, 7, 45, 0).unwrap());
     }
 
     #[test]
@@ -217,6 +220,6 @@ mod tests {
 
         let start = resolve_fetch_window_start(Some(last_success), now, Some(1));
 
-        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 0, 0).unwrap());
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 6, 45, 0).unwrap());
     }
 }

@@ -38,7 +38,7 @@ The bot expects a few environment variables:
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
 HeadHunter may reject requests with a blacklisted or invalid `User-Agent`, so production runs should define `HH_USER_AGENT` in GitHub Actions variables with a stable application identifier and contact.
-For one-off recovery runs you can set `BACKFILL_HOURS`, for example `120`, to fetch missed vacancies from the last five days in addition to the normal state-based window.
+For one-off recovery runs you can set `BACKFILL_HOURS`, typically `72`, to fetch missed vacancies from the last three days plus the normal overlap in addition to the state-based window.
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.

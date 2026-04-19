@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       backfill_hours:
-        description: 'Optional: widen the fetch window for one-off backfills'
+        description: 'Optional: widen the fetch window for one-off backfills, typically 72'
         required: false
         type: string
 
