@@ -19,7 +19,6 @@ pub struct Job {
 
 #[derive(Debug, Deserialize)]
 struct VacanciesResponse {
-    #[serde(default)]
     items: Vec<Job>,
     pages: Option<u32>,
 }
@@ -27,6 +26,7 @@ struct VacanciesResponse {
 pub struct HhClient {
     client: reqwest::Client,
     base_url: String,
+    user_agent: String,
 }
 
 /// List of lower-case search terms used to query HeadHunter.
@@ -38,12 +38,24 @@ const SEARCH_TERMS: &[&str] = &[
     "rust-programmer",
     "rust-программист",
 ];
+const DEFAULT_USER_AGENT: &str =
+    "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)";
+const USER_AGENT_ENV_VAR: &str = "HH_USER_AGENT";
+
+fn configured_user_agent() -> String {
+    std::env::var(USER_AGENT_ENV_VAR)
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_USER_AGENT.to_owned())
+}
 
 impl HhClient {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::new(),
             base_url: "https://api.hh.ru".into(),
+            user_agent: configured_user_agent(),
         }
     }
 
@@ -51,6 +63,7 @@ impl HhClient {
         Self {
             client: reqwest::Client::new(),
             base_url: base_url.into(),
+            user_agent: configured_user_agent(),
         }
     }
 
@@ -88,12 +101,10 @@ impl HhClient {
             let response = self
                 .client
                 .get(request_url)
-                .header(
-                    "User-Agent",
-                    "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)",
-                )
+                .header("User-Agent", &self.user_agent)
                 .send()
                 .await?
+                .error_for_status()?
                 .json::<VacanciesResponse>()
                 .await?;
 
