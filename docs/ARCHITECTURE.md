@@ -8,6 +8,7 @@ This document describes the intended structure of the bot that searches for vaca
    - Queries the hh.ru API with search terms like `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
    - Selects vacancies where "Rust" appears in the title.
    - Extracts contact details and a job link when possible.
+   - Can poll built-in public proxy providers for Russian free proxies, probe them against `/vacancies`, and retry the real request through the first working routes before falling back to direct access.
 2. **Telegram module**
    - Uses the Bot API to send messages.
    - Stores the token and channel ID in the configuration.
