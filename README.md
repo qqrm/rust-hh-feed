@@ -29,7 +29,7 @@ The bot expects a few environment variables:
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
 | `HH_BASE_URL` | Override base URL for the HeadHunter API |
-| `HH_USER_AGENT` | Override the `User-Agent` header sent to the HeadHunter API |
+| `HH_USER_AGENT` | Override the identification header value sent to the HeadHunter API |
 | `BACKFILL_HOURS` | Optional one-off override that widens the fetch window for backfills |
 | `TELEGRAM_API_BASE_URL` | Override base URL for the Telegram Bot API |
 | `POSTED_JOBS_PATH` | Path to the JSON file with already posted jobs |
@@ -37,7 +37,7 @@ The bot expects a few environment variables:
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
-HeadHunter may reject requests with a blacklisted or invalid `User-Agent`, so production runs should define `HH_USER_AGENT` in GitHub Actions variables with a stable application identifier and contact.
+HeadHunter documents `User-Agent` and `HH-User-Agent` as interchangeable request headers, so the bot now sends both with the same value. Production runs should define `HH_USER_AGENT` in GitHub Actions variables using the documented application/contact format, for example `MyApp/1.0 (my-app-feedback@example.com)`.
 For one-off recovery runs you can set `BACKFILL_HOURS`, typically `72`, to fetch missed vacancies from the last three days plus the normal overlap in addition to the state-based window.
 The bot always fetches from the last successful committed run with a small overlap window. If the state file is missing or does not contain a committed timestamp yet, it falls back to a wider bootstrap window to reduce the chance of missing vacancies during unstable scheduling.
 

@@ -1,4 +1,5 @@
 use chrono::{DateTime, SecondsFormat, Utc};
+use reqwest::header::{HeaderName, USER_AGENT};
 use reqwest::Url;
 use serde::Deserialize;
 
@@ -38,9 +39,9 @@ const SEARCH_TERMS: &[&str] = &[
     "rust-programmer",
     "rust-программист",
 ];
-const DEFAULT_USER_AGENT: &str =
-    "Mozilla/5.0 (compatible; rust-bot/1.0; +https://github.com/qqrm/rust-hh-feed)";
+const DEFAULT_USER_AGENT: &str = "rust-hh-feed/1.0 (qqrm@users.noreply.github.com)";
 const USER_AGENT_ENV_VAR: &str = "HH_USER_AGENT";
+const HH_USER_AGENT_HEADER: HeaderName = HeaderName::from_static("hh-user-agent");
 
 fn configured_user_agent() -> String {
     std::env::var(USER_AGENT_ENV_VAR)
@@ -101,7 +102,8 @@ impl HhClient {
             let response = self
                 .client
                 .get(request_url)
-                .header("User-Agent", &self.user_agent)
+                .header(USER_AGENT, &self.user_agent)
+                .header(HH_USER_AGENT_HEADER.clone(), &self.user_agent)
                 .send()
                 .await?
                 .error_for_status()?
