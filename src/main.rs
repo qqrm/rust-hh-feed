@@ -19,9 +19,9 @@ const BACKFILL_HOURS_VAR: &str = "BACKFILL_HOURS";
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
     let hh_client = if let Ok(url) = std::env::var("HH_BASE_URL") {
-        hh::HhClient::with_base_url(url)
+        hh::HhClient::from_env_with_base_url(url).await?
     } else {
-        hh::HhClient::new()
+        hh::HhClient::from_env().await?
     };
 
     let path = std::env::var("POSTED_JOBS_PATH").unwrap_or_else(|_| "data/posted_jobs.json".into());
