@@ -1,6 +1,9 @@
 name: HH Curl Probe
 
 on:
+  push:
+    branches:
+      - codex/hh-curl-probe
   workflow_dispatch:
 
 jobs:
