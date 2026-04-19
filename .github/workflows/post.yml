@@ -2,7 +2,7 @@ name: Post to Telegram
 
 on:
   schedule:
-    - cron: '0,30 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
     inputs:
       backfill_hours:
@@ -55,7 +55,6 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           BACKFILL_HOURS: ${{ inputs.backfill_hours }}
           HH_USER_AGENT: ${{ vars.HH_USER_AGENT }}
-          MANUAL_MODE: ${{ github.event_name == 'workflow_dispatch' }}
           RUST_LOG: info
           BINARY_NAME: rust-hh-feed
         run: |

@@ -21,12 +21,13 @@ The file is a JSON object with metadata about the last committed run and a dicti
 
 1. The CI workflow downloads `posted_jobs.json` from the previous successful run and places it in the `data` directory.
 2. On startup the bot loads the file into memory, reads `last_successful_run_at`, and requests vacancies from HeadHunter starting at that timestamp with a small overlap window.
-3. For each vacancy found:
+3. If the file is missing or does not contain a committed success timestamp yet, the bot falls back to a wider bootstrap window so that delayed or unstable workflow schedules do not cause immediate data loss.
+4. For each vacancy found:
    - if the ID already exists in the file, the vacancy is skipped;
    - otherwise the bot publishes it and adds a record to the JSON.
-4. After posting, the bot removes entries older than `JOB_RETENTION_DAYS` (30 by default).
-5. Only after the full run succeeds does the bot update `last_successful_run_at` and write the new state file.
-6. The file is then uploaded as an artifact so that the next pipeline run can download it.
+5. After posting, the bot removes entries older than `JOB_RETENTION_DAYS` (30 by default).
+6. Only after the full run succeeds does the bot update `last_successful_run_at` and write the new state file.
+7. The file is then uploaded as an artifact so that the next pipeline run can download it.
 
 If a workflow run fails, its state file is not uploaded and its vacancies are not considered committed. The next successful run re-fetches vacancies since the previous successful run, which allows the bot to recover jobs discovered during failed runs.
 

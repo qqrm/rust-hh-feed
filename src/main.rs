@@ -3,7 +3,7 @@ use rust_hh_feed::state;
 use rust_hh_feed::telegram;
 
 use anyhow::Context;
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use state::{load_posted_jobs, prune_old_jobs, resolve_fetch_window_start, save_posted_jobs};
 use std::path::Path;
 use telegram::TelegramBot;
@@ -49,6 +49,20 @@ async fn main() -> anyhow::Result<()> {
             Ok(hours)
         })
         .transpose()?;
+    if let Some(last_successful_run_at) = state.last_successful_run_at {
+        let gap = now - last_successful_run_at;
+        if gap > Duration::minutes(20) {
+            log::warn!(
+                "Detected an unstable schedule gap: last successful committed run was {} minute(s) ago at {}",
+                gap.num_minutes(),
+                last_successful_run_at.to_rfc3339()
+            );
+        }
+    } else {
+        log::warn!(
+            "No committed successful run timestamp found, falling back to the bootstrap fetch window"
+        );
+    }
     let fetch_from = resolve_fetch_window_start(state.last_successful_run_at, now, backfill_hours);
     if let Some(hours) = backfill_hours {
         log::warn!(
@@ -57,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
         );
     }
     log::info!(
-        "Fetching jobs between {} and {}",
+        "Fetching jobs between {} and {} based on the last successful committed run with overlap",
         fetch_from.to_rfc3339(),
         now.to_rfc3339()
     );

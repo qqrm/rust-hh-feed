@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
 pub type PostedJobs = HashMap<String, String>;
+const DEFAULT_FETCH_WINDOW_HOURS: i64 = 24;
 const FETCH_OVERLAP_MINUTES: i64 = 15;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,7 +76,7 @@ pub fn prune_old_jobs(map: &mut PostedJobs, retention_days: i64) {
 }
 
 pub fn default_fetch_window_start(now: DateTime<Utc>) -> DateTime<Utc> {
-    now - Duration::minutes(45)
+    now - Duration::hours(DEFAULT_FETCH_WINDOW_HOURS)
 }
 
 pub fn fetch_window_start(
@@ -200,7 +201,7 @@ mod tests {
 
         let start = fetch_window_start(None, now);
 
-        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 3, 7, 15, 0).unwrap());
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 4, 2, 8, 0, 0).unwrap());
     }
 
     #[test]
