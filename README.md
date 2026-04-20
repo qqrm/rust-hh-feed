@@ -1,6 +1,6 @@
 # rust-hh-feed
 
-This project collects job postings related to the Rust programming language from HeadHunter every 20 minutes and posts them to a Telegram channel.
+This project collects job postings related to the Rust programming language from HeadHunter and posts them to a Telegram channel.
 You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
@@ -8,14 +8,14 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 - Query the hh.ru API for fresh vacancies using keywords such as `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
 - Filter vacancies where "Rust" appears in the title.
 - Publish the results to a Telegram channel via a bot.
-- Schedule the process to run every 20 minutes.
+- Run the posting pipeline from GitHub Actions when the HeadHunter workflows are enabled.
 
 ## Components
 
 1. **HeadHunter parser** — a Rust module that queries the API.
 2. **Collector and filter** — processes vacancies and selects relevant ones.
 3. **Telegram bot** — sends messages to the channel.
-4. **Scheduler** — triggers the collection and posting.
+4. **Scheduler** — triggers the collection and posting when the HeadHunter workflows are enabled.
 
 ## Documentation
 - [Project architecture](docs/README.md)
@@ -48,6 +48,7 @@ The bot always fetches from the last successful committed run with a small overl
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.
+The HeadHunter posting workflows are currently paused by default. To re-enable job posting after the HH access problem is resolved, restore the schedule in `post.yml` and set the GitHub Actions variable `HH_PIPELINES_ENABLED=true`.
 
 Set the `RUST_LOG` environment variable to control the logging level, for
 example `RUST_LOG=info`.
@@ -69,7 +70,7 @@ This keeps the logs short while still printing warnings and errors.
 ## Continuous Integration
 Pull requests trigger the [`ci.yml`](.github/workflows/ci.yml) workflow that checks formatting,
 lint rules, `cargo machete`, and tests. The `post.yml` workflow
-builds and runs the application either on schedule or manually. After
+can run the application manually when the HeadHunter workflows are enabled. After
 `ci.yml` succeeds, the `auto_merge.yml` workflow merges the pull request using the `gh` CLI.
 Dependabot now manages three update surfaces:
 
@@ -97,7 +98,7 @@ download artifacts directly from the workflow run page.
 Additional workflows automate repository maintenance:
 
 - `pr_cleanup.yml` cancels running CI jobs and deletes the branch after a pull request is merged while skipping its own run.
-- `manual_release.yml` allows manual execution of the bot through the GitHub UI using the current `latest` release asset.
+- `manual_release.yml` allows manual execution of the bot through the GitHub UI when `HH_PIPELINES_ENABLED=true`.
 - The `cleanup-old-runs` job inside `post.yml` deletes completed runs of all workflows after three days using `GITHUB_TOKEN` with the `actions: write` permission.
 
 
