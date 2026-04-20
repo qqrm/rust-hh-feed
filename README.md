@@ -5,14 +5,14 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 
 ## Main Features
 
-- Query the hh.ru API for fresh vacancies using keywords such as `rust`, `rust-разработчик`, `rust-developer`, `rust-programmer`, and `rust-программист`.
+- Read the HeadHunter search RSS feed for fresh `rust` vacancies ordered by publication time.
 - Filter vacancies where "Rust" appears in the title.
 - Publish the results to a Telegram channel via a bot.
 - Run the posting pipeline from GitHub Actions when the HeadHunter workflows are enabled.
 
 ## Components
 
-1. **HeadHunter parser** — a Rust module that queries the API.
+1. **HeadHunter parser** — a Rust module that reads the HeadHunter search RSS feed.
 2. **Collector and filter** — processes vacancies and selects relevant ones.
 3. **Telegram bot** — sends messages to the channel.
 4. **Scheduler** — triggers the collection and posting when the HeadHunter workflows are enabled.
@@ -28,8 +28,8 @@ The bot expects a few environment variables:
 |----------|--------------------------------------------------------------|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
 | `TELEGRAM_CHAT_ID` | ID of the channel to post jobs |
-| `HH_BASE_URL` | Override base URL for the HeadHunter API |
-| `HH_USER_AGENT` | Override the identification header value sent to the HeadHunter API |
+| `HH_BASE_URL` | Override base URL for the HeadHunter web host or a test double |
+| `HH_USER_AGENT` | Override the `User-Agent` value sent to HeadHunter search requests |
 | `HH_PROXY_URLS` | Optional comma- or newline-separated proxy URLs for HeadHunter requests only |
 | `HH_PROXY_SOURCE_URLS` | Optional comma- or newline-separated URLs that return proxy candidates; if unset, the bot polls built-in public proxy providers |
 | `HH_PROXY_PROBE_TIMEOUT_SECS` | Timeout for fetching and probing HeadHunter proxy candidates |
@@ -40,15 +40,15 @@ The bot expects a few environment variables:
 | `JOB_RETENTION_DAYS` | Maximum age in days to keep posted job IDs |
 
 The file referenced by `POSTED_JOBS_PATH` is not committed to the repository. It is downloaded from the previous successful workflow run and uploaded back as an artifact only after a new successful execution. The state file also stores the timestamp of the last committed run so the bot can re-fetch vacancies after one or more failed runs.
-HeadHunter documents `User-Agent` and `HH-User-Agent` as interchangeable request headers, so the bot now sends both with the same value. Production runs should define `HH_USER_AGENT` in GitHub Actions variables using the documented application/contact format, for example `MyApp/1.0 (my-app-feedback@example.com)`.
+The collector now uses the HeadHunter search RSS feed exposed by the public vacancy search page instead of the blocked `/vacancies` API endpoint. `HH_USER_AGENT` remains configurable so production runs can identify themselves consistently.
 The bot can dynamically poll several built-in public proxy providers for Russian free proxies when `HH_PROXY_SOURCE_URLS` is unset. If you do define `HH_PROXY_SOURCE_URLS`, those custom sources replace the built-in provider list.
-If `HH_PROXY_URLS` is configured or a proxy source returns candidates, the bot probes a bounded candidate set against the HeadHunter vacancies endpoint, keeps the working proxies in order, and retries the real vacancies request through them until one succeeds before falling back to direct access. Telegram traffic always stays on the direct network path.
+If `HH_PROXY_URLS` is configured or a proxy source returns candidates, the bot probes a bounded candidate set against the HeadHunter search RSS endpoint, keeps the working proxies in order, and retries the real feed request through them until one succeeds before falling back to direct access. Telegram traffic always stays on the direct network path.
 For one-off recovery runs you can set `BACKFILL_HOURS`, typically `72`, to fetch missed vacancies from the last three days plus the normal overlap in addition to the state-based window.
 The bot always fetches from the last successful committed run with a small overlap window. If the state file is missing or does not contain a committed timestamp yet, it falls back to a wider bootstrap window to reduce the chance of missing vacancies during unstable scheduling.
 
 During continuous integration the workflow sets `TELEGRAM_CHAT_ID` to a development channel.
 Scheduled runs and manual releases use the production chat ID.
-The HeadHunter posting workflows are currently paused by default. To re-enable job posting after the HH access problem is resolved, restore the schedule in `post.yml` and set the GitHub Actions variable `HH_PIPELINES_ENABLED=true`.
+The HeadHunter posting workflows run on a 20-minute schedule when the GitHub Actions variable `HH_PIPELINES_ENABLED=true`.
 
 Set the `RUST_LOG` environment variable to control the logging level, for
 example `RUST_LOG=info`.

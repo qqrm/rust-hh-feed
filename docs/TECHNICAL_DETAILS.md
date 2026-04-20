@@ -20,7 +20,7 @@ The file is a JSON object with metadata about the last committed run and a dicti
 ## Typical Workflow
 
 1. The CI workflow downloads `posted_jobs.json` from the previous successful run and places it in the `data` directory.
-2. On startup the bot loads the file into memory, reads `last_successful_run_at`, and requests vacancies from HeadHunter starting at that timestamp with a small overlap window.
+2. On startup the bot loads the file into memory, reads `last_successful_run_at`, and requests vacancies from the HeadHunter search RSS feed starting at that timestamp with a small overlap window.
 3. If the file is missing or does not contain a committed success timestamp yet, the bot falls back to a wider bootstrap window so that delayed or unstable workflow schedules do not cause immediate data loss.
 4. For each vacancy found:
    - if the ID already exists in the file, the vacancy is skipped;

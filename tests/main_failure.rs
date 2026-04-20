@@ -6,28 +6,27 @@ use tempfile::tempdir;
 #[test]
 fn main_does_not_commit_state_after_failed_delivery() {
     let mut server = Server::new();
-    let hh_body = r#"{
-        "items": [
-            {"id":"1","name":"Rust dev","alternate_url":"http://example.com/1"},
-            {"id":"2","name":"Rust engineer","alternate_url":"http://example.com/2"}
-        ]
-    }"#;
+    let hh_body = r#"<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0"><channel>
+  <item><pubDate>2026-04-20T12:29:41.773+03:00</pubDate><title>Rust dev</title><link>http://example.com/vacancy/1</link></item>
+  <item><pubDate>2026-04-20T11:29:41.773+03:00</pubDate><title>Rust engineer</title><link>http://example.com/vacancy/2</link></item>
+</channel></rss>"#;
     let hh_mock = server
-        .mock("GET", "/vacancies")
+        .mock("GET", "/search/vacancy/rss")
         .match_query(Matcher::Any)
         .with_status(200)
-        .with_header("content-type", "application/json")
+        .with_header("content-type", "application/xml")
         .with_body(hh_body)
         .create();
 
     let tg_ok = server
         .mock("POST", "/bottoken/sendMessage")
-        .match_body(Matcher::Regex("http://example.com/1".into()))
+        .match_body(Matcher::Regex("http://example.com/vacancy/1".into()))
         .with_status(200)
         .create();
     let tg_fail = server
         .mock("POST", "/bottoken/sendMessage")
-        .match_body(Matcher::Regex("http://example.com/2".into()))
+        .match_body(Matcher::Regex("http://example.com/vacancy/2".into()))
         .with_status(500)
         .create();
 

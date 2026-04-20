@@ -8,11 +8,13 @@ use tempfile::tempdir;
 fn main_manual_mocked() {
     let mut server = Server::new();
     let hh_mock = server
-        .mock("GET", "/vacancies")
+        .mock("GET", "/search/vacancy/rss")
         .match_query(mockito::Matcher::Any)
         .with_status(200)
-        .with_header("content-type", "application/json")
-        .with_body("{\"items\":[{\"id\":\"1\",\"name\":\"Rust dev\",\"alternate_url\":\"http://example.com/1\"}]}")
+        .with_header("content-type", "application/xml")
+        .with_body(
+            "<?xml version='1.0' encoding='utf-8'?><rss version=\"2.0\"><channel><item><pubDate>2026-04-20T12:29:41.773+03:00</pubDate><title>Rust dev</title><link>http://example.com/vacancy/1</link></item></channel></rss>",
+        )
         .create();
 
     let tg_mock = server

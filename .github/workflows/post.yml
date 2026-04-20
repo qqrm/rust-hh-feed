@@ -1,6 +1,8 @@
 name: Post to Telegram
 
 on:
+  schedule:
+    - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       backfill_hours:
