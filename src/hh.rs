@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, SecondsFormat, Utc};
-use reqwest::header::{HeaderName, USER_AGENT};
+use chrono::{DateTime, Utc};
+use quick_xml::de::from_str;
+use reqwest::header::USER_AGENT;
 use reqwest::{Client, Proxy, Url};
 use serde::Deserialize;
 use std::borrow::Cow;
@@ -23,9 +24,22 @@ pub struct Job {
 }
 
 #[derive(Debug, Deserialize)]
-struct VacanciesResponse {
-    items: Vec<Job>,
-    pages: Option<u32>,
+struct SearchRssFeed {
+    channel: SearchRssChannel,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchRssChannel {
+    #[serde(default)]
+    item: Vec<SearchRssItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchRssItem {
+    title: String,
+    link: String,
+    #[serde(rename = "pubDate")]
+    pub_date: String,
 }
 
 pub struct HhClient {
@@ -39,18 +53,9 @@ struct HhRoute {
     label: String,
 }
 
-/// List of lower-case search terms used to query HeadHunter.
-/// Variations cover common spellings of Rust-related job titles.
-const SEARCH_TERMS: &[&str] = &[
-    "rust",
-    "rust-разработчик",
-    "rust-developer",
-    "rust-programmer",
-    "rust-программист",
-];
+const SEARCH_QUERY: &str = "rust";
 const DEFAULT_USER_AGENT: &str = "rust-hh-feed/1.0 (qqrm@users.noreply.github.com)";
 const USER_AGENT_ENV_VAR: &str = "HH_USER_AGENT";
-const HH_USER_AGENT_HEADER: HeaderName = HeaderName::from_static("hh-user-agent");
 const PROXY_URLS_ENV_VAR: &str = "HH_PROXY_URLS";
 const PROXY_SOURCE_URLS_ENV_VAR: &str = "HH_PROXY_SOURCE_URLS";
 const PROXY_PROBE_TIMEOUT_SECS_ENV_VAR: &str = "HH_PROXY_PROBE_TIMEOUT_SECS";
@@ -405,41 +410,123 @@ fn build_proxy_client(proxy_url: &str, timeout: Duration) -> Result<Client> {
         .with_context(|| format!("failed to build HH client for proxy {proxy_url}"))
 }
 
-fn probe_request_url(base_url: &str) -> Url {
-    let url = format!("{base_url}/vacancies");
-    let mut request_url = Url::parse(&url).expect("HH vacancies URL must be valid");
-    request_url
-        .query_pairs_mut()
-        .append_pair("text", "rust")
-        .append_pair("per_page", "1")
-        .append_pair("page", "0")
-        .append_pair("order_by", "publication_time")
-        .append_pair("search_field", "name");
-    request_url
+fn web_base_url(base_url: &str) -> Result<Url> {
+    let mut url = Url::parse(base_url).context("HH base URL must be a valid absolute URL")?;
+
+    if let Some(host) = url.host_str().map(str::to_owned) {
+        if host == "api.hh.ru" {
+            url.set_host(Some("hh.ru"))
+                .expect("hh.ru must be a valid replacement host");
+        } else if host.starts_with("api.") && host.ends_with(".hh.ru") {
+            let replacement = host["api.".len()..].to_owned();
+            url.set_host(Some(&replacement))
+                .expect("HH host replacement must remain valid");
+        }
+    }
+
+    url.set_path("");
+    url.set_query(None);
+    url.set_fragment(None);
+    Ok(url)
 }
 
-async fn probe_vacancies_access(client: &Client, base_url: &str, user_agent: &str) -> bool {
-    let request_url = probe_request_url(base_url);
+fn feed_request_url(base_url: &str) -> Result<Url> {
+    let base = web_base_url(base_url)?;
+    let mut request_url = base
+        .join("/search/vacancy/rss")
+        .context("failed to build HeadHunter RSS URL")?;
+    request_url
+        .query_pairs_mut()
+        .append_pair("order_by", "publication_time")
+        .append_pair("ored_clusters", "true")
+        .append_pair("search_field", "name")
+        .append_pair("text", SEARCH_QUERY);
+    Ok(request_url)
+}
+
+fn vacancy_id_from_link(link: &str) -> Option<String> {
+    let url = Url::parse(link).ok()?;
+    let segments: Vec<_> = url.path_segments()?.collect();
+    segments
+        .windows(2)
+        .find(|window| window[0] == "vacancy")
+        .map(|window| window[1].to_owned())
+}
+
+fn parse_rss_jobs(body: &str, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Job>> {
+    let feed: SearchRssFeed = from_str(body).context("failed to parse HeadHunter search RSS")?;
+
+    let mut jobs = Vec::new();
+    for item in feed.channel.item {
+        let published_at = DateTime::parse_from_rfc3339(&item.pub_date)
+            .with_context(|| {
+                format!(
+                    "failed to parse RSS publication timestamp {}",
+                    item.pub_date
+                )
+            })?
+            .with_timezone(&Utc);
+        if published_at < from || published_at > to {
+            continue;
+        }
+
+        let id = match vacancy_id_from_link(&item.link) {
+            Some(id) => id,
+            None => {
+                log::warn!(
+                    "Skipping RSS item with unexpected vacancy link {}",
+                    item.link
+                );
+                continue;
+            }
+        };
+
+        jobs.push(Job {
+            id,
+            name: item.title,
+            url: item.link,
+            snippet: None,
+        });
+    }
+
+    Ok(jobs)
+}
+
+async fn probe_search_access(client: &Client, base_url: &str, user_agent: &str) -> bool {
+    let request_url = match feed_request_url(base_url) {
+        Ok(url) => url,
+        Err(error) => {
+            log::warn!("Failed to build HeadHunter RSS probe URL: {error:#}");
+            return false;
+        }
+    };
+
     match client
         .get(request_url)
         .header(USER_AGENT, user_agent)
-        .header(HH_USER_AGENT_HEADER.clone(), user_agent)
         .send()
         .await
     {
         Ok(response) if response.status().is_success() => true,
         Ok(response) => {
-            log::debug!("HH proxy probe received status {}", response.status());
+            log::debug!("HH RSS probe received status {}", response.status());
             false
         }
         Err(error) => {
-            log::debug!("HH proxy probe failed: {error}");
+            log::debug!("HH RSS probe failed: {error}");
             false
         }
     }
 }
 
-async fn configured_proxy_candidates(timeout: Duration) -> Result<Vec<String>> {
+fn uses_hh_host(base_url: &str) -> bool {
+    Url::parse(base_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned))
+        .is_some_and(|host| host == "hh.ru" || host.ends_with(".hh.ru"))
+}
+
+async fn configured_proxy_candidates(timeout: Duration, base_url: &str) -> Result<Vec<String>> {
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
 
@@ -463,7 +550,13 @@ async fn configured_proxy_candidates(timeout: Duration) -> Result<Vec<String>> {
                 })
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_else(|| DEFAULT_PROXY_SOURCES.to_vec());
+        .unwrap_or_else(|| {
+            if uses_hh_host(base_url) {
+                DEFAULT_PROXY_SOURCES.to_vec()
+            } else {
+                Vec::new()
+            }
+        });
 
     for source in configured_sources {
         match fetch_proxy_source_candidates(&source_client, &source).await {
@@ -533,7 +626,7 @@ impl HhClient {
         let base_url = base_url.into();
         let user_agent = configured_user_agent();
         let timeout = configured_proxy_probe_timeout()?;
-        let proxy_candidates = configured_proxy_candidates(timeout).await?;
+        let proxy_candidates = configured_proxy_candidates(timeout, &base_url).await?;
         let direct_client = build_client_with_timeout(timeout)?;
 
         if proxy_candidates.is_empty() {
@@ -563,7 +656,7 @@ impl HhClient {
                 }
             };
 
-            if probe_vacancies_access(&client, &base_url, &user_agent).await {
+            if probe_search_access(&client, &base_url, &user_agent).await {
                 log::info!("Accepted HeadHunter proxy candidate {redacted}");
                 routes.push(HhRoute {
                     client,
@@ -579,12 +672,12 @@ impl HhClient {
                 continue;
             }
 
-            log::warn!("Proxy {redacted} did not pass the HeadHunter vacancies probe");
+            log::warn!("Proxy {redacted} did not pass the HeadHunter RSS probe");
         }
 
         if routes.is_empty() {
             log::warn!(
-                "No configured proxy passed the HeadHunter vacancies probe, falling back to direct access"
+                "No configured proxy passed the HeadHunter RSS probe, falling back to direct access"
             );
         }
 
@@ -600,7 +693,7 @@ impl HhClient {
         })
     }
 
-    pub async fn fetch_jobs(&self) -> Result<Vec<Job>, reqwest::Error> {
+    pub async fn fetch_jobs(&self) -> Result<Vec<Job>> {
         let to = Utc::now();
         let from = to - chrono::Duration::minutes(45);
         self.fetch_jobs_between(from, to).await
@@ -610,7 +703,7 @@ impl HhClient {
         &self,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-    ) -> Result<Vec<Job>, reqwest::Error> {
+    ) -> Result<Vec<Job>> {
         let mut last_error = None;
 
         for route in &self.routes {
@@ -623,7 +716,7 @@ impl HhClient {
                     return Ok(jobs);
                 }
                 Err(error) => {
-                    log::warn!("HeadHunter fetch failed via {}: {}", route.label, error);
+                    log::warn!("HeadHunter fetch failed via {}: {error:#}", route.label);
                     last_error = Some(error);
                 }
             }
@@ -637,58 +730,24 @@ impl HhClient {
         client: &Client,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-    ) -> Result<Vec<Job>, reqwest::Error> {
-        let url = format!("{}/vacancies", self.base_url);
-        log::debug!("Requesting jobs from {url}");
-        let search_query = SEARCH_TERMS.join(" OR ");
-        let mut page = 0;
-        let mut jobs = Vec::new();
+    ) -> Result<Vec<Job>> {
+        let request_url = feed_request_url(&self.base_url)?;
+        log::debug!("Requesting jobs from {request_url}");
 
-        loop {
-            let mut request_url = Url::parse(&url).expect("HH vacancies URL must be valid");
-            request_url
-                .query_pairs_mut()
-                .append_pair("text", &search_query)
-                .append_pair("per_page", "100")
-                .append_pair("page", &page.to_string())
-                .append_pair("order_by", "publication_time")
-                .append_pair("search_field", "name")
-                .append_pair(
-                    "date_from",
-                    &from.to_rfc3339_opts(SecondsFormat::Secs, true),
-                )
-                .append_pair("date_to", &to.to_rfc3339_opts(SecondsFormat::Secs, true));
+        let body = client
+            .get(request_url)
+            .header(USER_AGENT, &self.user_agent)
+            .send()
+            .await
+            .context("failed to request HeadHunter search RSS")?
+            .error_for_status()
+            .context("HeadHunter search RSS returned an unsuccessful status")?
+            .text()
+            .await
+            .context("failed to read HeadHunter search RSS response body")?;
 
-            let response = client
-                .get(request_url)
-                .header(USER_AGENT, &self.user_agent)
-                .header(HH_USER_AGENT_HEADER.clone(), &self.user_agent)
-                .send()
-                .await?
-                .error_for_status()?
-                .json::<VacanciesResponse>()
-                .await?;
-
-            log::debug!(
-                "Fetched page {} with {} item(s) for range {}..{}",
-                page,
-                response.items.len(),
-                from,
-                to
-            );
-
-            let pages = response
-                .pages
-                .unwrap_or(u32::from(response.items.is_empty()));
-            jobs.extend(response.items);
-
-            page += 1;
-            if page >= pages.max(1) {
-                break;
-            }
-        }
-
-        log::debug!("Parsed {} jobs", jobs.len());
+        let jobs = parse_rss_jobs(&body, from, to)?;
+        log::debug!("Parsed {} jobs from HeadHunter RSS", jobs.len());
         Ok(jobs)
     }
 }
@@ -703,8 +762,10 @@ impl Default for HhClient {
 mod tests {
     use super::{
         normalize_proxy_candidate, parse_freeproxy24_candidates, parse_openproxylist_candidates,
-        parse_spys_proxy_candidates, redact_proxy_url, split_configured_values,
+        parse_rss_jobs, parse_spys_proxy_candidates, redact_proxy_url, split_configured_values,
+        vacancy_id_from_link,
     };
+    use chrono::{TimeZone, Utc};
 
     #[test]
     fn split_configured_values_supports_lines_and_commas() {
@@ -788,5 +849,40 @@ Fromat: CountryFlag IP:PORT ResponseTime CountryCode [ISP]\n\
             parsed,
             vec!["socks5://85.143.173.198:8444", "socks4://31.135.91.9:4145"]
         );
+    }
+
+    #[test]
+    fn vacancy_id_is_parsed_from_link() {
+        assert_eq!(
+            vacancy_id_from_link("https://spb.hh.ru/vacancy/132168741"),
+            Some("132168741".to_owned())
+        );
+    }
+
+    #[test]
+    fn parse_rss_jobs_filters_by_requested_window() {
+        let body = r#"<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <pubDate>2026-04-20T12:29:41.773+03:00</pubDate>
+      <title>Middle Backend разработчик (Rust)</title>
+      <link>https://spb.hh.ru/vacancy/132235061</link>
+    </item>
+    <item>
+      <pubDate>2026-04-15T14:43:52.856+03:00</pubDate>
+      <title>Backend-разработчик (RUST, C/C++)</title>
+      <link>https://spb.hh.ru/vacancy/132168741</link>
+    </item>
+  </channel>
+</rss>"#;
+        let from = Utc.with_ymd_and_hms(2026, 4, 16, 0, 0, 0).unwrap();
+        let to = Utc.with_ymd_and_hms(2026, 4, 20, 23, 59, 59).unwrap();
+
+        let jobs = parse_rss_jobs(body, from, to).unwrap();
+
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].id, "132235061");
+        assert_eq!(jobs[0].name, "Middle Backend разработчик (Rust)");
     }
 }
