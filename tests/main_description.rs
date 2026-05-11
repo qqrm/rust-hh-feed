@@ -1,3 +1,5 @@
+mod common;
+
 use assert_cmd::Command;
 use mockito::Server;
 use serde_json::Value;
@@ -7,10 +9,8 @@ use tempfile::tempdir;
 #[test]
 fn main_ignores_jobs_with_rust_only_in_description() {
     let mut server = Server::new();
-    let hh_body = r#"<?xml version='1.0' encoding='utf-8'?>
-<rss version="2.0"><channel>
-  <item><pubDate>2026-04-20T12:29:41.773+03:00</pubDate><title>Backend dev</title><link>http://example.com/vacancy/1</link></item>
-</channel></rss>"#;
+    let pub_date = common::recent_rfc3339(5);
+    let hh_body = common::rss_feed(&[(&pub_date, "Backend dev", "http://example.com/vacancy/1")]);
     let hh_mock = server
         .mock("GET", "/search/vacancy/rss")
         .match_query(mockito::Matcher::Any)

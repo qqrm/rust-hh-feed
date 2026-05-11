@@ -1,3 +1,5 @@
+mod common;
+
 use assert_cmd::Command;
 use mockito::{Matcher, Server};
 use std::fs;
@@ -6,11 +8,16 @@ use tempfile::tempdir;
 #[test]
 fn main_does_not_commit_state_after_failed_delivery() {
     let mut server = Server::new();
-    let hh_body = r#"<?xml version='1.0' encoding='utf-8'?>
-<rss version="2.0"><channel>
-  <item><pubDate>2026-04-20T12:29:41.773+03:00</pubDate><title>Rust dev</title><link>http://example.com/vacancy/1</link></item>
-  <item><pubDate>2026-04-20T11:29:41.773+03:00</pubDate><title>Rust engineer</title><link>http://example.com/vacancy/2</link></item>
-</channel></rss>"#;
+    let first_pub_date = common::recent_rfc3339(5);
+    let second_pub_date = common::recent_rfc3339(65);
+    let hh_body = common::rss_feed(&[
+        (&first_pub_date, "Rust dev", "http://example.com/vacancy/1"),
+        (
+            &second_pub_date,
+            "Rust engineer",
+            "http://example.com/vacancy/2",
+        ),
+    ]);
     let hh_mock = server
         .mock("GET", "/search/vacancy/rss")
         .match_query(Matcher::Any)
