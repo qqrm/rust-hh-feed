@@ -166,7 +166,7 @@ jobs:
         if: >
           steps.pr.outputs.number &&
           steps.pr.outputs.should_merge == 'true' &&
-          steps.pr.outputs.base_ref == 'main' &&
+          steps.pr.outputs.base_ref == 'main'
         env:
           PR: ${{ steps.pr.outputs.number }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
