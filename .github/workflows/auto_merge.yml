@@ -37,6 +37,42 @@ jobs:
             const {owner, repo} = context.repo;
             const workflowRun = context.payload.workflow_run;
 
+            const normalizeVersion = (value) => {
+              const sanitized = value
+                .trim()
+                .replace(/^v/i, '')
+                .replace(/[),.]+$/, '');
+              const match = sanitized.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[-+].*)?$/);
+              if (!match) {
+                return null;
+              }
+
+              return match.slice(1, 4).map((part) => Number(part ?? '0'));
+            };
+
+            const classifyUpdate = (fromVersion, toVersion) => {
+              const from = normalizeVersion(fromVersion);
+              const to = normalizeVersion(toVersion);
+
+              if (!from || !to) {
+                return 'unknown';
+              }
+
+              if (to[0] !== from[0]) {
+                return 'major';
+              }
+
+              if (to[1] !== from[1]) {
+                return 'minor';
+              }
+
+              if (to[2] !== from[2]) {
+                return 'patch';
+              }
+
+              return 'none';
+            };
+
             let prNumber = workflowRun.pull_requests[0]?.number;
             let prData;
 
@@ -64,33 +100,73 @@ jobs:
               core.setOutput('same_repo', 'false');
               core.setOutput('head_ref', '');
               core.setOutput('head_sha', '');
+              core.setOutput('should_merge', 'false');
+              core.setOutput('reason', 'no-associated-pr');
               core.setOutput('base_ref', '');
               return;
             }
 
             const sameRepo =
               prData.head.repo.full_name === `${owner}/${repo}`;
+            const author = prData.user.login;
+            const headRef = prData.head.ref;
+            const headSha = prData.head.sha;
+            const isDependabot =
+              (author === 'dependabot[bot]' || author === 'app/dependabot') &&
+              headRef.startsWith('dependabot/');
+
+            const updates = [
+              ...(prData.body ?? '').matchAll(
+                /(?:Bumps \[[^\]]+\]\([^)]+\)|Updates `[^`]+`) from ([^ \n]+) to ([^ \n]+)/g
+              ),
+            ];
+            const updateKinds = updates.map(([, fromVersion, toVersion]) =>
+              classifyUpdate(fromVersion, toVersion)
+            );
+            const safeDependabot =
+              isDependabot &&
+              updateKinds.length > 0 &&
+              updateKinds.every((kind) => kind === 'minor' || kind === 'patch');
+            const trustedInternalAuthor =
+              author === 'qqrm' || author === 'codex-bot';
+            const shouldMerge =
+              sameRepo && (safeDependabot || trustedInternalAuthor);
+
+            let reason = 'not-eligible';
+            if (safeDependabot) {
+              reason = 'dependabot-minor-or-patch';
+            } else if (trustedInternalAuthor) {
+              reason = 'trusted-internal-author';
+            } else if (isDependabot && updateKinds.length === 0) {
+              reason = 'dependabot-update-type-undetected';
+            } else if (isDependabot) {
+              reason = `dependabot-${updateKinds.join(',') || 'unknown'}`;
+            }
 
             core.setOutput('number', prNumber);
-            core.setOutput('author', prData.user.login);
+            core.setOutput('author', author);
             core.setOutput('same_repo', String(sameRepo));
-            core.setOutput('head_ref', prData.head.ref);
-            core.setOutput('head_sha', prData.head.sha);
+            core.setOutput('head_ref', headRef);
+            core.setOutput('head_sha', headSha);
+            core.setOutput('should_merge', String(shouldMerge));
+            core.setOutput('reason', reason);
             core.setOutput('base_ref', prData.base.ref);
+
+      - name: Report skipped auto-merge
+        if: >
+          steps.pr.outputs.number &&
+          steps.pr.outputs.should_merge != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Skipping auto-merge: ${{ steps.pr.outputs.reason }}"
 
       - name: Merge CI-green internal PR
         if: >
           steps.pr.outputs.number &&
-          steps.pr.outputs.same_repo == 'true' &&
+          steps.pr.outputs.should_merge == 'true' &&
           steps.pr.outputs.base_ref == 'main' &&
-          (
-            (
-              steps.pr.outputs.author == 'dependabot[bot]' &&
-              startsWith(steps.pr.outputs.head_ref, 'dependabot/')
-            ) ||
-            steps.pr.outputs.author == 'qqrm' ||
-            steps.pr.outputs.author == 'codex-bot'
-          )
         env:
           PR: ${{ steps.pr.outputs.number }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
