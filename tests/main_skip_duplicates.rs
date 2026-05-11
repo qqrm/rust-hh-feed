@@ -1,3 +1,5 @@
+mod common;
+
 use assert_cmd::Command;
 use mockito::Server;
 use serde_json::Value;
@@ -7,14 +9,17 @@ use tempfile::tempdir;
 #[test]
 fn main_skips_already_posted() {
     let mut server = Server::new();
+    let pub_date = common::recent_rfc3339(5);
     let hh_mock = server
         .mock("GET", "/search/vacancy/rss")
         .match_query(mockito::Matcher::Any)
         .with_status(200)
         .with_header("content-type", "application/xml")
-        .with_body(
-            "<?xml version='1.0' encoding='utf-8'?><rss version=\"2.0\"><channel><item><pubDate>2026-04-20T12:29:41.773+03:00</pubDate><title>Rust dev</title><link>http://example.com/vacancy/1</link></item></channel></rss>",
-        )
+        .with_body(common::rss_feed(&[(
+            &pub_date,
+            "Rust dev",
+            "http://example.com/vacancy/1",
+        )]))
         .create();
 
     let tg_mock = server
