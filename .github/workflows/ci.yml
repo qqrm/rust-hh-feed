@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   test:
+    name: CI Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
