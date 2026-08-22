@@ -1,7 +1,10 @@
-# Re-register by pushing a commit that touches this file (see ci.yml note).
 name: Auto merge
 
 on:
+  # Mandatory: GitHub drops a workflow that has neither runs nor
+  # workflow_dispatch, and a PR-only workflow can never revive itself
+  # because no event reaches it. This froze CI here for three weeks.
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI Checks"]
     types:

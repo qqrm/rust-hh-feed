@@ -1,9 +1,10 @@
-# NOTE: GitHub orphans a workflow (state=deleted) after a history rewrite; a
-# PR-only workflow can never re-register itself because no event reaches it.
-# If CI stops running on PRs, push any commit touching this file.
 name: CI Checks
 
 on:
+  # Mandatory: GitHub drops a workflow that has neither runs nor
+  # workflow_dispatch, and a PR-only workflow can never revive itself
+  # because no event reaches it. This froze CI here for three weeks.
+  workflow_dispatch:
   pull_request:
   push:
     branches:
