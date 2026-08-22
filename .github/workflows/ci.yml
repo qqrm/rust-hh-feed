@@ -1,3 +1,6 @@
+# NOTE: GitHub orphans a workflow (state=deleted) after a history rewrite; a
+# PR-only workflow can never re-register itself because no event reaches it.
+# If CI stops running on PRs, push any commit touching this file.
 name: CI Checks
 
 on:

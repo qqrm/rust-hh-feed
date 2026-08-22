@@ -1,3 +1,4 @@
+# Re-register by pushing a commit that touches this file (see ci.yml note).
 name: Auto merge
 
 on:
