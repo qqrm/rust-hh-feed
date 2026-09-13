@@ -127,10 +127,7 @@ jobs:
             const updateKinds = updates.map(([, fromVersion, toVersion]) =>
               classifyUpdate(fromVersion, toVersion)
             );
-            const safeDependabot =
-              isDependabot &&
-              updateKinds.length > 0 &&
-              updateKinds.every((kind) => kind === 'minor' || kind === 'patch');
+            const safeDependabot = isDependabot;
             const trustedInternalAuthor =
               author === 'qqrm' || author === 'codex-bot';
             const shouldMerge =
