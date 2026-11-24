@@ -19,13 +19,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Test dependency policy
-        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+      - name: Test policy and unit contracts
+        run: cargo test --locked --quiet
       - name: Verify Dependabot commit provenance
         if: github.event.pull_request.user.login == 'dependabot[bot]'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/dependency_policy.py
+        run: cargo run --locked --quiet -- dependency-policy verify
 
   actionlint:
     name: actionlint

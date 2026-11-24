@@ -16,6 +16,8 @@ You can join the Telegram channel at [RustHH Jobs](https://t.me/rusthhjobs).
 2. **Collector and filter** — processes vacancies and selects relevant ones.
 3. **Telegram bot** — sends messages to the channel.
 4. **Scheduler** — triggers the collection and posting when the HeadHunter workflows are enabled.
+5. **Delivery checkpoint** — a Rust module that commits pending/confirmed state through the GitHub contents API, exposed as the binary's `checkpoint` subcommand.
+6. **Release and policy tools** — the same Rust binary provides `release-manifest` and `dependency-policy` subcommands. No Python scripts or runtime are used anywhere in the repository.
 
 ## Documentation
 - [Project architecture](docs/README.md)
@@ -82,7 +84,7 @@ Additional workflows automate repository maintenance:
 
 
 ## Release Binary
-A push to the `main` branch updates the `latest` release with a freshly built executable. Only one file, `rust-hh-feed`, is kept in the release. Download it with:
+A push to the `main` branch updates the `latest` release with a freshly built executable and its `delivery-manifest.json`. Download them with:
 
 ```
 curl -L https://github.com/<owner>/<repo>/releases/latest/download/rust-hh-feed -o rust-hh-feed
@@ -93,7 +95,7 @@ This project is licensed under the [MIT](LICENSE) license.
 
 ## Delivery checkpoints and recovery
 
-Production delivery stores its checkpoint in the separate `delivery-state` branch using GitHub's contents API. The workflow token is scoped to the restore/send steps and consumed by the checkpoint helper; checkout does not persist credentials. The remote file is a versioned JSON envelope containing base64-encoded application state and a `pending` SHA-256 digest. No token, chat ID, or API response is stored.
+Production delivery stores its checkpoint in the separate `delivery-state` branch using GitHub's contents API. The workflow token is scoped to the restore/send steps and used directly by the Rust binary (`rust-hh-feed checkpoint restore|save|begin|confirm`); checkout does not persist credentials and no external helper process is spawned. The remote file is a versioned JSON envelope containing base64-encoded application state and a `pending` SHA-256 digest. No token, chat ID, or API response is stored.
 
 Before each send, a pending operation is committed. Only an acknowledged send promotes the application state and clears pending in the same API write. Authentication, network, corrupt-state and checkpoint conflicts stop delivery. A missing branch is the only first-run condition; existing legacy state is migrated where available. A missing file in an existing state branch is an error. Caches and run artifacts are no longer the authority after migration.
 
@@ -112,7 +114,7 @@ Cargo and Actions updates share a weekly Dependabot maintenance batch with a sev
 
 Existing release and delivery triggers are preserved. A merge performed using `GITHUB_TOKEN` does not guarantee a follow-up push workflow. Guaranteed automatic post-merge releases need a separate GitHub App token or verified release controller; this change does not claim that coverage.
 
-The release publishes `delivery-manifest.json` (protocol 1, source commit, SHA-256) alongside the binary. Posting verifies both protocol and hash before execution. Missing old manifests and asset-update races fail closed; wait for the normal release to finish before retrying.
+The release publishes `delivery-manifest.json` (protocol 2, source commit, SHA-256) alongside the binary. Posting checks the protocol and the SHA-256 with trusted system tools before executing anything, then asks the same binary to verify the manifest through its `release-manifest verify` subcommand. Missing old manifests and asset-update races fail closed; the workflow waits for a protocol 2 release instead of running an older binary.
 
 Manual production delivery uses the same reusable posting workflow, backfill input, journal and pending guard as scheduled delivery. It cannot bypass reconciliation.
 
