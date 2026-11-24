@@ -413,12 +413,16 @@ fn cli_restore_signals_bootstrap_with_exit_code_three() {
 }
 
 #[test]
-fn partial_checkpoint_configuration_fails_closed() {
-    std::env::remove_var("GITHUB_REPOSITORY");
+fn checkpoint_configuration_requires_explicit_opt_in() {
+    // GITHUB_REPOSITORY is ambient in Actions and must not enable the
+    // checkpoint by itself.
+    std::env::set_var("GITHUB_REPOSITORY", "test/repo");
     std::env::remove_var("GH_TOKEN");
     std::env::remove_var("DELIVERY_STATE_KEY");
-    std::env::set_var("GH_TOKEN", "TEST");
-    let result = config_from_env();
-    std::env::remove_var("GH_TOKEN");
-    assert!(result.is_err());
+    assert!(config_from_env().unwrap().is_none());
+
+    std::env::set_var("DELIVERY_STATE_KEY", "posted_jobs.json");
+    assert!(config_from_env().is_err());
+    std::env::remove_var("DELIVERY_STATE_KEY");
+    std::env::remove_var("GITHUB_REPOSITORY");
 }

@@ -77,28 +77,29 @@ struct Envelope {
     version: u32,
 }
 
-/// Read the checkpoint configuration. All three variables must be present
-/// together; when none are set the caller runs in local-only mode.
+/// Read the checkpoint configuration. `DELIVERY_STATE_KEY` is the explicit
+/// opt-in: `GITHUB_REPOSITORY` is ambient in every Actions step, so it must not
+/// enable remote mode on its own.
 pub fn config_from_env() -> Result<Option<Config>> {
-    let repository = env::var("GITHUB_REPOSITORY").ok().filter(|v| !v.is_empty());
-    let token = env::var("GH_TOKEN").ok().filter(|v| !v.is_empty());
-    let key = env::var("DELIVERY_STATE_KEY")
+    let Some(key) = env::var("DELIVERY_STATE_KEY")
         .ok()
-        .filter(|v| !v.is_empty());
-
-    match (repository, token, key) {
-        (None, None, None) => Ok(None),
-        (Some(repository), Some(token), Some(key)) => {
-            let api_url = env::var("GITHUB_API_URL")
-                .ok()
-                .filter(|v| !v.is_empty())
-                .unwrap_or_else(|| DEFAULT_API_URL.to_owned());
-            Ok(Some(Config::new(repository, token, key, api_url)?))
-        }
-        _ => {
-            bail!("Checkpoint requires GITHUB_REPOSITORY, GH_TOKEN and DELIVERY_STATE_KEY together")
-        }
-    }
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
+    let repository = env::var("GITHUB_REPOSITORY")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .context("Checkpoint requires GITHUB_REPOSITORY")?;
+    let token = env::var("GH_TOKEN")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .context("Checkpoint requires GH_TOKEN")?;
+    let api_url = env::var("GITHUB_API_URL")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_API_URL.to_owned());
+    Ok(Some(Config::new(repository, token, key, api_url)?))
 }
 
 fn contents_endpoint(config: &Config) -> String {
