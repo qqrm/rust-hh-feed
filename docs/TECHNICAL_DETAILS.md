@@ -17,6 +17,10 @@ The file is a JSON object with metadata about the last committed run and a dicti
 }
 ```
 
+## Rust implementation
+
+The checkpoint protocol lives in `src/delivery_state.rs` and `src/checkpoint.rs`. The binary's `checkpoint restore|save|begin|confirm` subcommands perform the workflow-side operations, and the bot calls the same library in-process for each send. No Python scripts or external helper processes are involved. Every mutation compares the remote blob SHA with the receipt written at restore time, so a stale runner cannot overwrite newer progress.
+
 ## Typical Workflow
 
 1. The posting workflow restores `posted_jobs.json` from the durable checkpoint (a successful-run artifact is used only for initial migration) and places it in the `data` directory.

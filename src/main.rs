@@ -1,8 +1,12 @@
+use rust_hh_feed::checkpoint;
+use rust_hh_feed::delivery_state::{self, Operation, RestoreOutcome};
 use rust_hh_feed::hh;
+use rust_hh_feed::policy;
+use rust_hh_feed::release_manifest;
 use rust_hh_feed::state;
 use rust_hh_feed::telegram;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use chrono::{Duration, Utc};
 use state::{load_posted_jobs, prune_old_jobs, resolve_fetch_window_start, save_posted_jobs};
 use std::path::Path;
@@ -18,6 +22,61 @@ const BACKFILL_HOURS_VAR: &str = "BACKFILL_HOURS";
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
+        None => run_bot().await,
+        Some("checkpoint") => checkpoint_cli(&args[1..]).await,
+        Some("release-manifest") => manifest_cli(&args[1..]),
+        Some("dependency-policy") => policy_cli(&args[1..]).await,
+        Some(other) => bail!("Unknown command: {other}"),
+    }
+}
+
+async fn checkpoint_cli(args: &[String]) -> anyhow::Result<()> {
+    let config = delivery_state::config_from_env()?.context(
+        "Checkpoint commands require GITHUB_REPOSITORY, GH_TOKEN and DELIVERY_STATE_KEY",
+    )?;
+    match args {
+        [operation, file] if operation == "restore" => {
+            match delivery_state::restore(&config, Path::new(file)).await? {
+                RestoreOutcome::Restored => Ok(()),
+                RestoreOutcome::Bootstrap => std::process::exit(3),
+            }
+        }
+        [operation, file] if operation == "save" => {
+            delivery_state::commit(&config, Path::new(file), Operation::Save, None).await
+        }
+        [operation, file] if operation == "confirm" => {
+            delivery_state::commit(&config, Path::new(file), Operation::Confirm, None).await
+        }
+        [operation, file, identity] if operation == "begin" => {
+            delivery_state::commit(&config, Path::new(file), Operation::Begin, Some(identity)).await
+        }
+        _ => bail!("Usage: rust-hh-feed checkpoint <restore|save|begin|confirm> <file> [identity]"),
+    }
+}
+
+fn manifest_cli(args: &[String]) -> anyhow::Result<()> {
+    match args {
+        [operation, binary, manifest] if operation == "create" => {
+            let source_sha = std::env::var("GITHUB_SHA").context("GITHUB_SHA is not set")?;
+            release_manifest::create(Path::new(binary), Path::new(manifest), &source_sha)
+        }
+        [operation, binary, manifest] if operation == "verify" => {
+            release_manifest::verify(Path::new(binary), Path::new(manifest))
+        }
+        _ => bail!("Usage: rust-hh-feed release-manifest <create|verify> <binary> <manifest>"),
+    }
+}
+
+async fn policy_cli(args: &[String]) -> anyhow::Result<()> {
+    match args {
+        [operation] if operation == "verify" => policy::verify_dependabot_provenance().await,
+        _ => bail!("Usage: rust-hh-feed dependency-policy verify"),
+    }
+}
+
+async fn run_bot() -> anyhow::Result<()> {
     let hh_client = if let Ok(url) = std::env::var("HH_BASE_URL") {
         hh::HhClient::from_env_with_base_url(url).await?
     } else {
@@ -31,7 +90,7 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(false);
     if !manual_mode {
         // Establish a durable checkpoint before the first side effect.
-        save_posted_jobs(Path::new(&path), &state)?;
+        save_posted_jobs(Path::new(&path), &state).await?;
     }
     let retention_days = std::env::var(JOB_RETENTION_VAR)
         .ok()
@@ -111,7 +170,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         for job in &new_jobs {
             if !manual_mode {
-                rust_hh_feed::checkpoint::begin(Path::new(&path), &job.id)?;
+                checkpoint::begin(Path::new(&path), &job.id).await?;
             }
             bot.send_message(&job.url).await?;
             state
@@ -120,7 +179,7 @@ async fn main() -> anyhow::Result<()> {
                 .or_insert_with(|| Utc::now().date_naive().to_string());
             if !manual_mode {
                 // Keep the fetch watermark unchanged until the whole batch succeeds.
-                state::confirm_posted_jobs(Path::new(&path), &state)?;
+                state::confirm_posted_jobs(Path::new(&path), &state).await?;
             }
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         }
@@ -128,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
 
     if !manual_mode {
         state.last_successful_run_at = Some(now);
-        save_posted_jobs(Path::new(&path), &state)?;
+        save_posted_jobs(Path::new(&path), &state).await?;
     } else {
         println!("Manual mode enabled - not saving state");
     }

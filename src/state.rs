@@ -59,14 +59,14 @@ pub fn load_posted_jobs(path: &Path) -> Result<PostedJobsState> {
     Ok(state)
 }
 
-pub fn save_posted_jobs(path: &Path, state: &PostedJobsState) -> Result<()> {
+pub async fn save_posted_jobs(path: &Path, state: &PostedJobsState) -> Result<()> {
     let data = serde_json::to_string_pretty(state)?;
-    crate::checkpoint::save(path, data.as_bytes())?;
+    crate::checkpoint::save(path, data.as_bytes()).await?;
     Ok(())
 }
 
-pub fn confirm_posted_jobs(path: &Path, state: &PostedJobsState) -> Result<()> {
-    crate::checkpoint::confirm(path, &serde_json::to_vec_pretty(state)?)?;
+pub async fn confirm_posted_jobs(path: &Path, state: &PostedJobsState) -> Result<()> {
+    crate::checkpoint::confirm(path, &serde_json::to_vec_pretty(state)?).await?;
     Ok(())
 }
 
@@ -117,13 +117,13 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::tempdir;
 
-    #[test]
-    fn load_and_save_cycle() {
+    #[tokio::test]
+    async fn load_and_save_cycle() {
         let path = PathBuf::from("test_posted_jobs.json");
         let mut state = PostedJobsState::default();
         state.jobs.insert("1".into(), "2024-07-08".into());
         state.last_successful_run_at = Some(Utc.with_ymd_and_hms(2026, 4, 3, 1, 17, 50).unwrap());
-        save_posted_jobs(&path, &state).unwrap();
+        save_posted_jobs(&path, &state).await.unwrap();
         let loaded = load_posted_jobs(&path).unwrap();
         assert_eq!(state, loaded);
         std::fs::remove_file(&path).unwrap();
@@ -161,13 +161,13 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn save_fails_on_directory() {
+    #[tokio::test]
+    async fn save_fails_on_directory() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("subdir");
         fs::create_dir(&path).unwrap();
         let state = PostedJobsState::default();
-        let result = save_posted_jobs(&path, &state);
+        let result = save_posted_jobs(&path, &state).await;
         assert!(result.is_err());
     }
 

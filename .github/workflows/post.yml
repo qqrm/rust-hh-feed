@@ -43,6 +43,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: ./.github/actions/setup-release-binary
+
       - name: Restore durable publication state
         id: durable
         env:
@@ -50,7 +52,7 @@ jobs:
           DELIVERY_STATE_KEY: posted_jobs.json
         run: |
           status=0
-          python3 .github/scripts/delivery_state.py restore data/posted_jobs.json || status=$?
+          ./rust-hh-feed checkpoint restore data/posted_jobs.json || status=$?
           if [ "$status" = 3 ]; then
             echo 'bootstrap=true' >> "$GITHUB_OUTPUT"
           elif [ "$status" != 0 ]; then
@@ -78,23 +80,9 @@ jobs:
           fi
           jq -e '.version == 2 and (.last_successful_run_at | type == "string") and (.jobs | type == "object")' data/posted_jobs.json > /dev/null
 
-      - name: Download release binary
-        shell: bash
-        env:
-          BINARY_NAME: rust-hh-feed
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error -L -o "$BINARY_NAME" \
-            "https://github.com/${{ github.repository }}/releases/latest/download/$BINARY_NAME"
-          curl --fail --silent --show-error -L -o delivery-manifest.json \
-            "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/delivery-manifest.json"
-          python3 .github/scripts/release_manifest.py verify rust-hh-feed delivery-manifest.json
-          chmod +x rust-hh-feed
-
       - name: Run bot
         shell: bash
         env:
-          DELIVERY_CHECKPOINT: .github/scripts/delivery_state.py
           DELIVERY_STATE_KEY: posted_jobs.json
           GH_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
