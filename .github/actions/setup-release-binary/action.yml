@@ -1,0 +1,41 @@
+name: Set up verified release binary
+description: Download the published Rust bot and verify its delivery manifest before any use.
+
+runs:
+  using: composite
+  steps:
+    - name: Download and verify release assets
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+
+        # A protocol 2 manifest is published by the Rust-native checkpoint
+        # release. Older assets are never executed: this keeps the cutover
+        # safe while a release is still being built.
+        deadline=$((SECONDS + 900))
+        while :; do
+          if curl --fail --silent --show-error -L -o rust-hh-feed \
+              "https://github.com/${REPOSITORY}/releases/latest/download/rust-hh-feed" &&
+             curl --fail --silent --show-error -L -o delivery-manifest.json \
+              "https://github.com/${REPOSITORY}/releases/latest/download/delivery-manifest.json" &&
+             [ "$(jq -r '.protocol // 0' delivery-manifest.json 2>/dev/null)" = 2 ]; then
+            break
+          fi
+          if (( SECONDS >= deadline )); then
+            echo "::error::Latest release has no Rust-native delivery manifest (protocol 2); refusing to run."
+            exit 1
+          fi
+          sleep 30
+        done
+
+        expected="$(jq -r '.sha256' delivery-manifest.json)"
+        actual="$(sha256sum rust-hh-feed | cut -d' ' -f1)"
+        if [ "$expected" != "$actual" ]; then
+          echo "::error::Release binary hash does not match the delivery manifest."
+          exit 1
+        fi
+
+        chmod +x rust-hh-feed
+        ./rust-hh-feed release-manifest verify rust-hh-feed delivery-manifest.json

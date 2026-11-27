@@ -16,6 +16,12 @@ This document describes the intended structure of the bot that searches for vaca
    - Runs the update process every 20 minutes, typically via GitHub Actions.
    - Requests vacancies starting from the timestamp of the last successful run, with a small overlap window to avoid gaps near schedule boundaries.
    - Removes completed workflow runs older than three days using the `cleanup-old-runs` job.
+4. **Delivery checkpoint**
+   - Commits a pending digest before each Telegram send and promotes the confirmed state in one GitHub contents API write.
+   - Stores the durable envelope on the `delivery-state` branch; local `.pending` and `.remote-sha` markers guard retries.
+   - Exposed through the binary's `checkpoint` subcommand; no external scripts are spawned.
+5. **Release and policy tools**
+   - The same binary implements `release-manifest` (create/verify) and `dependency-policy` (provenance check) subcommands.
 
 ## Data Flow
 1. The scheduler initiates the task.
@@ -23,4 +29,4 @@ This document describes the intended structure of the bot that searches for vaca
 3. The Telegram module publishes a message with the list of vacancies.
 4. The publication state is committed only when the run completes successfully.
 
-All modules are implemented in Rust. The configuration is expected in a `.env` file.
+All modules are implemented in Rust, including the delivery checkpoint and the workflow helper commands. The configuration is expected in a `.env` file.

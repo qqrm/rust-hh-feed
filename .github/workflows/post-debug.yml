@@ -39,16 +39,7 @@ jobs:
           jq -e '.version == 2 and (.last_successful_run_at | type == "string") and (.jobs | type == "object")' data/posted_jobs.json > /dev/null
           echo "Loaded $(jq '.jobs | length' data/posted_jobs.json) previously published vacancy IDs."
 
-      - name: Download release binary
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL -o rust-hh-feed \
-            "https://github.com/${{ github.repository }}/releases/latest/download/rust-hh-feed"
-          curl --fail --silent --show-error -L -o delivery-manifest.json \
-            "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/delivery-manifest.json"
-          python3 .github/scripts/release_manifest.py verify rust-hh-feed delivery-manifest.json
-          chmod +x rust-hh-feed
+      - uses: ./.github/actions/setup-release-binary
 
       - name: Run bot against dev chat without advancing production state
         shell: bash
